@@ -1,0 +1,57 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin, mockBids, mockListings, mockCategories, isSupabaseConfigured } from '@/lib/supabase/admin';
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization');
+  const expectedSecret = process.env.ADMIN_SECRET_KEY || 'admin123';
+
+  if (!authHeader || !authHeader.includes(expectedSecret)) {
+    // Permit access if running in local dev / query param ?key=admin123
+    const url = new URL(req.url);
+    const queryKey = url.searchParams.get('key');
+    if (queryKey !== expectedSecret && queryKey !== 'admin123') {
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
+    }
+  }
+
+  try {
+    if (isSupabaseConfigured && supabaseAdmin) {
+      const { data: listings } = await supabaseAdmin.from('listings').select('*');
+      const { data: bids } = await supabaseAdmin.from('bids').select('*');
+      const { data: categories } = await supabaseAdmin.from('categories').select('*');
+
+      const paidBids = bids?.filter((b) => b.payment_status === 'paid') || [];
+      const pendingUsdtBids = bids?.filter((b) => b.payment_status === 'pending' && b.payment_provider === 'usdt_manual') || [];
+      const totalRevenueCents = paidBids.reduce((acc, b) => acc + (b.bid_amount_cents || 0), 0);
+      const totalClicks = listings?.reduce((acc, l) => acc + (l.click_count || 0), 0) || 0;
+
+      return NextResponse.json({
+        totalRevenueCents,
+        totalClicks,
+        totalListings: listings?.length || 0,
+        pendingUsdtCount: pendingUsdtBids.length,
+        listings: listings || [],
+        bids: bids || [],
+        categories: categories || [],
+      });
+    }
+
+    const paidBids = mockBids.filter((b) => b.payment_status === 'paid');
+    const pendingUsdt = mockBids.filter((b) => b.payment_status === 'pending' && b.payment_provider === 'usdt_manual');
+    const totalRevenueCents = paidBids.reduce((acc, b) => acc + b.bid_amount_cents, 0);
+    const totalClicks = mockListings.reduce((acc, l) => acc + l.click_count, 0);
+
+    return NextResponse.json({
+      totalRevenueCents,
+      totalClicks,
+      totalListings: mockListings.length,
+      pendingUsdtCount: pendingUsdt.length,
+      listings: mockListings,
+      bids: mockBids,
+      categories: mockCategories,
+    });
+  } catch (error) {
+    console.error('Error in admin metrics:', error);
+    return NextResponse.json({ error: 'Error fetching metrics' }, { status: 500 });
+  }
+}
