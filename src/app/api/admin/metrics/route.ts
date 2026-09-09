@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, mockBids, mockListings, mockCategories, isSupabaseConfigured } from '@/lib/supabase/admin';
+import { validateAdminRequest } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const expectedSecret = process.env.ADMIN_SECRET_KEY || 'admin123';
-
-  if (!authHeader || !authHeader.includes(expectedSecret)) {
-    // Permit access if running in local dev / query param ?key=admin123
-    const url = new URL(req.url);
-    const queryKey = url.searchParams.get('key');
-    if (queryKey !== expectedSecret && queryKey !== 'admin123') {
-      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
-    }
+  if (!validateAdminRequest(req)) {
+    return NextResponse.json({ error: 'No autorizado. Se requiere token de administrador válido.' }, { status: 401 });
   }
 
   try {

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processSuccessfulBid } from '@/app/api/webhooks/mercadopago/route';
+import { validateAdminRequest } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
+  if (!validateAdminRequest(req)) {
+    return NextResponse.json({ error: 'No autorizado. Se requiere token de administrador válido.' }, { status: 401 });
+  }
+
   try {
     const { bidId, txHash } = await req.json();
 

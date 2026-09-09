@@ -1,9 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { supabaseAdmin, mockBids, mockListings, mockCategories, isSupabaseConfigured } from '@/lib/supabase/admin';
 import { getPaymentDetails } from '@/lib/mercadopago';
 import { recalculateCategoryRankings } from '@/lib/auction';
 import { sendBidConfirmationEmail } from '@/lib/resend';
 import { Bid, Listing } from '@/types/database';
+
+function verifyMercadoPagoSignature(req: NextRequest, dataId?: string | null): boolean {
+  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[SEGURIDAD] MERCADOPAGO_WEBHOOK_SECRET no está configurada.');
+    }
+    return true;
+  }
+
+  const xSignature = req.headers.get('x-signature');
+  const xRequestId = req.headers.get('x-request-id');
+
+  if (!xSignature) {
+    console.error('[SEGURIDAD] Falta encabezado x-signature en webhook de Mercado Pago.');
+    return false;
+  }
+
+  const parts = xSignature.split(',').reduce((acc, part) => {
+    const [k, v] = part.split('=');
+    if (k && v) acc[k.trim()] = v.trim();
+    return acc;
+  }, {} as Record<string, string>);
+
+  const ts = parts['ts'];
+  const hash = parts['v1'];
+
+  if (!ts || !hash) {
+    console.error('[SEGURIDAD] Formato inválido de x-signature en webhook.');
+    return false;
+  }
+
+  const manifest = `id:${dataId || ''};request-id:${xRequestId || ''};ts:${ts};`;
+  const computedHash = crypto.createHmac('sha256', webhookSecret).update(manifest).digest('hex');
+
+  try {
+    const expectedBuf = Buffer.from(computedHash, 'utf8');
+    const providedBuf = Buffer.from(hash, 'utf8');
+    if (expectedBuf.length !== providedBuf.length) return false;
+    return crypto.timingSafeEqual(expectedBuf, providedBuf);
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,6 +61,11 @@ export async function POST(req: NextRequest) {
       url.searchParams.get('id') ||
       body.data?.id ||
       body.id;
+
+    // Verificar firma criptográfica si la clave secreta está configurada
+    if (!verifyMercadoPagoSignature(req, paymentId)) {
+      return NextResponse.json({ error: 'Firma de webhook no válida' }, { status: 401 });
+    }
 
     const topic = url.searchParams.get('type') || url.searchParams.get('topic') || body.type || body.topic;
 
@@ -37,6 +87,11 @@ export async function POST(req: NextRequest) {
 
     if (!externalRef) {
       return NextResponse.json({ received: true, note: 'No external_reference found' });
+    }
+
+    // Solo activar si el pago fue aprobado
+    if (!isApproved) {
+      return NextResponse.json({ received: true, note: `Payment status is ${paymentData?.status || 'unknown'}` });
     }
 
     // Process the bid

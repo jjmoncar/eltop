@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, mockListings, isSupabaseConfigured } from '@/lib/supabase/admin';
+import { validateAdminRequest } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
+  if (!validateAdminRequest(req)) {
+    return NextResponse.json({ error: 'No autorizado. Se requiere token de administrador válido.' }, { status: 401 });
+  }
+
   try {
     const { listingId, isApproved } = await req.json();
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CurrencySelector } from './CurrencySelector';
 import { CurrencyCode } from '@/types/database';
-import { Flame, Trophy, Activity, Zap, PlusCircle } from 'lucide-react';
+import { Trophy, Activity, Plus, Search, Sparkles } from 'lucide-react';
 
 interface Props {
   currency: CurrencyCode;
@@ -16,65 +16,68 @@ export function Navbar({ currency, onCurrencyChange }: Props) {
   const pathname = usePathname();
 
   const navLinks = [
-    { href: '/', label: 'Explorar Todo', icon: Trophy },
-    { href: '/saas', label: 'SaaS', badge: 'Popular' },
-    { href: '/cripto', label: 'Cripto', badge: 'Hot' },
+    { href: '/', label: 'Explorar' },
+    { href: '/saas', label: 'SaaS' },
+    { href: '/cripto', label: 'Cripto' },
     { href: '/ecommerce', label: 'E-commerce' },
     { href: '/marketing', label: 'Marketing' },
-    { href: '/actividad', label: 'En Vivo', icon: Activity },
+    { href: '/actividad', label: 'Actividad' },
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 transition-all">
+    <header className="sticky top-0 z-40 w-full bg-[#FAF8F5]/90 backdrop-blur-md border-b border-[#EAE6DF] transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-105 transition transform">
-            <Flame className="w-5 h-5 text-slate-950 fill-slate-950" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-lg tracking-tight text-white group-hover:text-amber-300 transition">
-                eltop<span className="text-amber-400">.lat</span>
-              </span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                LATAM
-              </span>
+        {/* Left: Brand Logo & Live Stats */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          <Link href="/" className="flex items-center gap-2 group shrink-0">
+            {/* Logo Mark with outbid-inspired warm style */}
+            <div className="flex flex-col gap-[3px] justify-center items-start w-5">
+              <span className="w-5 h-[3.5px] bg-[#E05A38] rounded-full" />
+              <span className="w-4 h-[3.5px] bg-stone-900 rounded-full" />
+              <span className="w-5 h-[3.5px] bg-stone-900 rounded-full" />
             </div>
-            <span className="text-[10px] text-slate-400 font-medium leading-none">
-              El leaderboard de subasta
+            <span className="font-extrabold text-xl tracking-tight text-stone-900 group-hover:text-[#E05A38] transition">
+              eltop<span className="text-[#E05A38]">.lat</span>
             </span>
-          </div>
-        </Link>
+          </Link>
 
-        {/* Navigation Categories */}
-        <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+          {/* Online stats badge matching screenshot */}
+          <div className="hidden lg:flex items-center gap-2 text-xs text-stone-500 bg-white px-3 py-1 rounded-full border border-[#EAE6DF] shadow-xs">
+            <span className="flex items-center gap-1.5 font-bold text-emerald-700">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              140 online
+            </span>
+            <span className="text-stone-300">·</span>
+            <span>1,475,684 visitas</span>
+            <span className="text-stone-300">·</span>
+            <Link href="/actividad" className="text-stone-700 hover:text-[#E05A38] font-medium flex items-center gap-0.5 transition">
+              stats →
+            </Link>
+          </div>
+        </div>
+
+        {/* Center / Right Links */}
+        <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-stone-600">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
-            const Icon = link.icon;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  isActive
-                    ? 'bg-slate-800 text-amber-400 border border-slate-700 shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
+                className={`transition hover:text-stone-950 ${
+                  isActive ? 'text-[#E05A38] font-semibold' : ''
                 }`}
               >
-                {Icon && <Icon className="w-3.5 h-3.5" />}
                 {link.label}
-                {link.badge && (
-                  <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-red-500/20 text-red-400 border border-red-500/30">
-                    {link.badge}
-                  </span>
-                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Right side Actions */}
+        {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
           <CurrencySelector
             selectedCurrency={currency}
@@ -83,16 +86,16 @@ export function Navbar({ currency, onCurrencyChange }: Props) {
 
           <Link
             href="/saas/reclamar"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-[1.02] active:scale-[0.98] transition transform"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white text-xs font-bold shadow-sm shadow-[#E05A38]/25 hover:scale-[1.02] active:scale-[0.98] transition transform"
           >
-            <PlusCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Pujar Puesto</span>
           </Link>
         </div>
       </div>
 
       {/* Mobile subnav */}
-      <div className="md:hidden flex items-center gap-1 px-4 py-2 border-t border-slate-800/60 overflow-x-auto no-scrollbar">
+      <div className="md:hidden flex items-center gap-2 px-4 py-2 border-t border-[#EAE6DF] overflow-x-auto no-scrollbar bg-[#FAF8F5]">
         {navLinks.map((link) => {
           const isActive = pathname === link.href;
           return (
@@ -101,8 +104,8 @@ export function Navbar({ currency, onCurrencyChange }: Props) {
               href={link.href}
               className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium transition ${
                 isActive
-                  ? 'bg-amber-500 text-slate-950 font-bold'
-                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                  ? 'bg-[#E05A38] text-white font-bold'
+                  : 'bg-white text-stone-700 border border-[#EAE6DF]'
               }`}
             >
               {link.label}

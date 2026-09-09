@@ -19,11 +19,11 @@ export function CurrencySelector({ selectedCurrency, onCurrencyChange }: Props) 
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-200 transition shadow-inner backdrop-blur-sm"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-stone-50 border border-[#EAE6DF] text-xs font-semibold text-stone-700 transition shadow-xs"
       >
         <span className="text-sm">{current.flag}</span>
-        <span className="font-semibold text-amber-400">{current.code}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+        <span className="font-bold text-[#E05A38]">{current.code}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
       </button>
 
       {isOpen && (
@@ -32,9 +32,9 @@ export function CurrencySelector({ selectedCurrency, onCurrencyChange }: Props) 
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 mt-2 w-56 rounded-xl bg-slate-900/95 border border-slate-700/80 shadow-2xl z-50 backdrop-blur-md overflow-hidden py-1">
-            <div className="px-3 py-2 text-[10px] font-bold tracking-wider uppercase text-slate-400 border-b border-slate-800 flex items-center gap-1.5">
-              <Globe className="w-3 h-3 text-amber-400" />
+          <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-[#EAE6DF] shadow-xl z-50 overflow-hidden py-1">
+            <div className="px-3 py-2 text-[10px] font-bold tracking-wider uppercase text-stone-400 border-b border-[#F0ECE4] flex items-center gap-1.5">
+              <Globe className="w-3 h-3 text-[#E05A38]" />
               Moneda & País
             </div>
             {Object.values(CURRENCIES).map((curr) => (
@@ -44,17 +44,17 @@ export function CurrencySelector({ selectedCurrency, onCurrencyChange }: Props) 
                   onCurrencyChange(curr.code);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-xs transition ${
+                className={`w-full flex items-center justify-between px-3.5 py-2 text-xs transition ${
                   selectedCurrency === curr.code
-                    ? 'bg-amber-500/15 text-amber-300 font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800/80'
+                    ? 'bg-[#FDF2EE] text-[#E05A38] font-bold'
+                    : 'text-stone-700 hover:bg-stone-50'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-base">{curr.flag}</span>
                   <span>{curr.code}</span>
                 </div>
-                <span className="text-[11px] text-slate-400 truncate max-w-[120px]">
+                <span className="text-[11px] text-stone-400 truncate max-w-[120px]">
                   {curr.symbol} ({curr.name.split('(')[0]})
                 </span>
               </button>

@@ -6,7 +6,7 @@ export async function GET() {
     if (isSupabaseConfigured && supabaseAdmin) {
       const { data: bids, error } = await supabaseAdmin
         .from('bids')
-        .select('*, categories(id, slug, name_es, icon)')
+        .select('id, listing_id, category_id, bid_amount_cents, buyer_name, target_name, tagline, target_url, logo_url, created_at, categories(id, slug, name_es, icon)')
         .eq('payment_status', 'paid')
         .order('created_at', { ascending: false })
         .limit(25);
@@ -15,11 +15,20 @@ export async function GET() {
       return NextResponse.json({ bids: bids || [] });
     }
 
-    // Mock data with populated category
+    // Mock data with populated category, sanitized of sensitive info
     const paidMockBids = mockBids
       .filter((b) => b.payment_status === 'paid')
       .map((b) => ({
-        ...b,
+        id: b.id,
+        listing_id: b.listing_id,
+        category_id: b.category_id,
+        bid_amount_cents: b.bid_amount_cents,
+        buyer_name: b.buyer_name,
+        target_name: b.target_name,
+        tagline: b.tagline,
+        target_url: b.target_url,
+        logo_url: b.logo_url,
+        created_at: b.created_at,
         category: mockCategories.find((c) => c.id === b.category_id),
       }))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

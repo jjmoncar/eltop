@@ -28,7 +28,7 @@ export interface Listing {
   tagline: string;
   url: string;
   logo_url?: string | null;
-  email: string;
+  email?: string;
   current_bid_cents: number;
   click_count: number;
   is_approved: boolean;

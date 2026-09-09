@@ -13,7 +13,7 @@ export async function GET() {
 
       const { data: listings, error: listErr } = await supabaseAdmin
         .from('listings')
-        .select('*')
+        .select('id, category_id, rank_type, position, name, tagline, url, logo_url, current_bid_cents, click_count, is_approved, created_at, updated_at')
         .eq('is_approved', true)
         .order('position', { ascending: true });
 
@@ -22,9 +22,14 @@ export async function GET() {
       return NextResponse.json({ categories, listings });
     }
 
+    const sanitizedMockListings = mockListings
+      .filter((l) => l.is_approved)
+      .map(({ email, ...rest }) => rest)
+      .sort((a, b) => a.position - b.position);
+
     return NextResponse.json({
       categories: mockCategories,
-      listings: mockListings.filter((l) => l.is_approved).sort((a, b) => a.position - b.position),
+      listings: sanitizedMockListings,
     });
   } catch (error) {
     console.error('Error in /api/categories:', error);

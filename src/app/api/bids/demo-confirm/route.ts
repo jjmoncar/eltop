@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processSuccessfulBid } from '@/app/api/webhooks/mercadopago/route';
+import { isMercadoPagoConfigured } from '@/lib/mercadopago';
 
 export async function POST(req: NextRequest) {
+  // Por seguridad, jamás permitir confirmaciones simuladas en producción o con pasarela real
+  if (process.env.NODE_ENV === 'production' || isMercadoPagoConfigured) {
+    return NextResponse.json(
+      { error: 'Confirmación demo no permitida en entorno con pasarela real activa.' },
+      { status: 403 }
+    );
+  }
+
   try {
     const { bidId } = await req.json();
 

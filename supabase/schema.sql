@@ -124,9 +124,19 @@ CREATE POLICY "Categories are viewable by everyone" ON public.categories
 CREATE POLICY "Approved listings are viewable by everyone" ON public.listings
     FOR SELECT USING (is_approved = true);
 
--- Bids: Read public only paid bids (for activity feed), write admin/service-role
-CREATE POLICY "Paid bids are viewable by everyone" ON public.bids
-    FOR SELECT USING (payment_status = 'paid');
+-- Bids: Accessible only via service-role backend to protect buyer_email and raw_payment_data.
+-- Direct anon access to the raw table is blocked to prevent PII leaks.
+-- Public feed is exposed via the sanitized view public_bids below.
+DROP VIEW IF EXISTS public.public_bids;
+CREATE VIEW public.public_bids WITH (security_invoker = false) AS
+    SELECT 
+        id, category_id, listing_id, bid_amount_cents, 
+        buyer_name, target_name, tagline, target_url, 
+        logo_url, created_at
+    FROM public.bids
+    WHERE payment_status = 'paid';
+
+GRANT SELECT ON public.public_bids TO anon, authenticated;
 
 -- Click events: Insertable via RPC/service-role
 CREATE POLICY "Click events are insertable by anyone" ON public.click_events

@@ -39,12 +39,12 @@ function ReclamarContent() {
   const currentCategory = categories.find((c) => c.slug === categorySlug) || categories[0];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+    <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-stone-900 font-sans">
       <Navbar currency={currency} onCurrencyChange={setCurrency} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         {isLoading || !currentCategory ? (
-          <div className="py-24 text-center text-slate-500 text-sm animate-pulse">
+          <div className="py-24 text-center text-stone-400 text-sm animate-pulse">
             Cargando subasta...
           </div>
         ) : (
@@ -65,7 +65,7 @@ function ReclamarContent() {
 
 export default function ReclamarPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-950" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#FAF8F5]" />}>
       <ReclamarContent />
     </Suspense>
   );

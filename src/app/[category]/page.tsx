@@ -6,7 +6,7 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
 import { Category, Listing, CurrencyCode } from '@/types/database';
-import { Plus, Trophy, Clock, Calendar } from 'lucide-react';
+import { Plus, Trophy, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CategoryPage() {
@@ -43,28 +43,28 @@ export default function CategoryPage() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+    <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-stone-900 font-sans">
       <Navbar currency={currency} onCurrencyChange={setCurrency} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-8">
         {/* Category Header */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div className="p-6 sm:p-8 rounded-3xl bg-white border border-[#EAE6DF] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDF2EE] border border-[#FADCD3] text-[#E05A38] text-xs font-semibold">
               <Trophy className="w-3.5 h-3.5" />
               <span>Leaderboard Oficial</span>
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+            <h1 className="text-2xl sm:text-4xl font-black text-stone-900 tracking-tight">
               {currentCategory ? currentCategory.name_es : categorySlug.toUpperCase()}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
+            <p className="text-xs sm:text-sm text-stone-500 max-w-xl">
               {currentCategory?.description_es || 'Compite por el podio de tu industria en Latinoamérica.'}
             </p>
           </div>
 
           <Link
             href={`/${categorySlug}/reclamar`}
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/25 transition transform active:scale-95 shrink-0"
+            className="flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition transform active:scale-95 shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Pujar por un Puesto</span>
@@ -72,35 +72,35 @@ export default function CategoryPage() {
         </div>
 
         {/* Time Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+        <div className="flex items-center gap-3 border-b border-[#EAE6DF] pb-3 text-xs font-semibold">
           <button
             onClick={() => setTimeTab('all_time')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
+            className={`flex items-center gap-1.5 pb-1 transition relative ${
               timeTab === 'all_time'
-                ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                ? 'text-[#E05A38] border-b-2 border-[#E05A38] font-bold'
+                : 'text-stone-500 hover:text-stone-900'
             }`}
           >
-            <Trophy className="w-3.5 h-3.5" />
+            <Trophy className="w-3.5 h-3.5 text-[#E05A38]" />
             <span>Todo el Tiempo (All-Time)</span>
           </button>
 
           <button
             onClick={() => setTimeTab('daily')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
+            className={`flex items-center gap-1.5 pb-1 transition relative ${
               timeTab === 'daily'
-                ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                ? 'text-[#E05A38] border-b-2 border-[#E05A38] font-bold'
+                : 'text-stone-500 hover:text-stone-900'
             }`}
           >
-            <Calendar className="w-3.5 h-3.5" />
+            <span className="h-2 w-2 rounded-full bg-[#E05A38]" />
             <span>Hoy (Daily)</span>
           </button>
         </div>
 
         {/* Table */}
         {isLoading ? (
-          <div className="py-20 text-center text-slate-500 text-sm animate-pulse">
+          <div className="py-20 text-center text-stone-400 text-sm animate-pulse">
             Cargando ranking de {categorySlug}...
           </div>
         ) : currentCategory ? (
@@ -110,7 +110,7 @@ export default function CategoryPage() {
             currency={currency}
           />
         ) : (
-          <div className="py-16 text-center text-slate-400">
+          <div className="py-16 text-center text-stone-500">
             Categoría no encontrada.
           </div>
         )}
