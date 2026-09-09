@@ -34,10 +34,6 @@ export function Navbar({ currency, onCurrencyChange, categories }: Props) {
 
   const navLinks = [
     { href: '/', label: 'Explorar' },
-    ...liveCategories.map((c) => ({
-      href: `/${c.slug}`,
-      label: c.name_es.split('&')[0].split(' e ')[0].trim(),
-    })),
     { href: '/actividad', label: 'Actividad' },
   ];
 
@@ -114,7 +110,7 @@ export function Navbar({ currency, onCurrencyChange, categories }: Props) {
       </div>
 
       {/* Mobile subnav */}
-      <div className="md:hidden flex items-center gap-2 px-4 py-2 border-t border-[#EAE6DF] overflow-x-auto no-scrollbar bg-[#FAF8F5]">
+      <div className="md:hidden flex items-center justify-center gap-3 px-4 py-2 border-t border-[#EAE6DF] bg-[#FAF8F5]">
         {navLinks.map((link) => {
           const isActive = pathname === link.href;
           return (
