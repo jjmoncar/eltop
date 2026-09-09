@@ -5,7 +5,8 @@ import { Bid, Category } from '@/types/database';
 
 export async function POST(req: NextRequest) {
   try {
-    const { bidId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { bidId, paymentProvider } = body;
 
     if (!bidId) {
       return NextResponse.json({ error: 'Falta el identificador de la puja (bidId).' }, { status: 400 });
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
       unitPriceUsd,
       buyerEmail: bid.buyer_email,
       backUrl,
+      paymentProvider: paymentProvider || bid.payment_provider,
     });
 
     return NextResponse.json({
@@ -59,10 +61,10 @@ export async function POST(req: NextRequest) {
       initPoint: prefResult.init_point,
       sandboxInitPoint: prefResult.sandbox_init_point,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in /api/checkout/mercadopago:', error);
     return NextResponse.json(
-      { error: 'Error al generar la pasarela de pago.' },
+      { error: error?.message || 'Error al generar la pasarela de pago.' },
       { status: 500 }
     );
   }

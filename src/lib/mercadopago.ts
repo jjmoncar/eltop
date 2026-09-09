@@ -14,18 +14,23 @@ export const mpClient = isMercadoPagoConfigured
     })
   : null;
 
+import { CURRENCIES } from '@/lib/currencies';
+import { CurrencyCode } from '@/types/database';
+
 export async function createPaymentPreference({
   bidId,
   title,
   unitPriceUsd,
   buyerEmail,
   backUrl,
+  paymentProvider = 'mercadopago',
 }: {
   bidId: string;
   title: string;
   unitPriceUsd: number;
   buyerEmail: string;
   backUrl: string;
+  paymentProvider?: string;
 }) {
   if (!mpClient) {
     // Return a mock sandbox checkout URL for local testing and demonstration
@@ -36,34 +41,58 @@ export async function createPaymentPreference({
     };
   }
 
-  const preference = new Preference(mpClient);
-  const response = await preference.create({
-    body: {
-      items: [
-        {
-          id: bidId,
-          title: `eltop.lat — ${title}`,
-          description: `Puesto en eltop.lat (Leaderboard LATAM)`,
-          quantity: 1,
-          unit_price: unitPriceUsd,
-          currency_id: 'USD',
-        },
-      ],
-      payer: {
-        email: buyerEmail,
-      },
-      external_reference: bidId,
-      back_urls: {
-        success: `${backUrl}?payment=success&bid_id=${bidId}`,
-        failure: `${backUrl}?payment=failure&bid_id=${bidId}`,
-        pending: `${backUrl}?payment=pending&bid_id=${bidId}`,
-      },
-      auto_return: 'approved',
-      notification_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://eltop.lat'}/api/webhooks/mercadopago`,
-    },
-  });
+  // Mercado Pago accounts in LATAM process in their country currency (e.g. BRL in Brasil, ARS in Argentina)
+  const targetCurrency: CurrencyCode = (process.env.MERCADOPAGO_CURRENCY as CurrencyCode) || 'BRL';
+  const currencyConfig = CURRENCIES[targetCurrency] || CURRENCIES.BRL;
+  const rate = currencyConfig.rateAgainstUSD || 5.60;
+  const unitPrice = Math.max(0.5, Number((unitPriceUsd * rate).toFixed(2)));
 
-  return response;
+  const preference = new Preference(mpClient);
+
+  const body: Record<string, any> = {
+    items: [
+      {
+        id: bidId,
+        title: `eltop.lat — ${title}`,
+        description: `Puesto en eltop.lat (Leaderboard LATAM - Equivalente a $${unitPriceUsd} USD)`,
+        quantity: 1,
+        unit_price: unitPrice,
+        currency_id: targetCurrency,
+      },
+    ],
+    payer: {
+      email: buyerEmail || 'comprador@eltop.lat',
+    },
+    external_reference: bidId,
+    back_urls: {
+      success: `${backUrl}?payment=success&bid_id=${bidId}`,
+      failure: `${backUrl}?payment=failure&bid_id=${bidId}`,
+      pending: `${backUrl}?payment=pending&bid_id=${bidId}`,
+    },
+    notification_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://eltop.lat'}/api/webhooks/mercadopago`,
+  };
+
+  // Si el usuario seleccionó Pix en Brasil, priorizar Pix como método por defecto
+  if ((paymentProvider === 'stripe_pix' || paymentProvider === 'pix') && targetCurrency === 'BRL') {
+    body.default_payment_method_id = 'pix';
+  }
+
+  // Mercado Pago solo acepta auto_return si la URL de éxito usa HTTPS
+  if (body.back_urls.success.startsWith('https://')) {
+    body.auto_return = 'approved';
+  }
+
+  try {
+    const response = await preference.create({ body: body as any });
+    return response;
+  } catch (error: any) {
+    console.error('[MERCADOPAGO PREFERENCE ERROR]', {
+      message: error?.message,
+      cause: error?.cause,
+      status: error?.status,
+    });
+    throw error;
+  }
 }
 
 export async function getPaymentDetails(paymentId: string) {

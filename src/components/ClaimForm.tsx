@@ -157,7 +157,7 @@ export function ClaimForm({
       const checkoutRes = await fetch('/api/checkout/mercadopago', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bidId }),
+        body: JSON.stringify({ bidId, paymentProvider }),
       });
 
       const checkoutData = await checkoutRes.json();
