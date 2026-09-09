@@ -1,7 +1,13 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { Category, Listing, Bid, AdminUser } from '@/types/database';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+export function sanitizeSupabaseUrl(url?: string): string {
+  if (!url) return '';
+  return url.trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+}
+
+const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = sanitizeSupabaseUrl(rawSupabaseUrl);
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const isSupabaseConfigured = Boolean(
@@ -13,7 +19,7 @@ export const isSupabaseConfigured = Boolean(
 
 // Admin client for backend operations with service role
 export const supabaseAdmin = isSupabaseConfigured
-  ? createSupabaseClient(supabaseUrl!, supabaseServiceKey!, {
+  ? createSupabaseClient(supabaseUrl, supabaseServiceKey!, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,

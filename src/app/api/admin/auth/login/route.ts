@@ -28,8 +28,37 @@ export async function POST(req: NextRequest) {
           .single();
 
         if (error || !user) {
+          console.error('[ADMIN LOGIN ERROR]', { email: cleanEmail, error });
+
+          // Si el error es de tipo PostgREST "no rows found", el usuario no existe en la BD
+          if (error && error.code === 'PGRST116') {
+            return NextResponse.json(
+              { error: 'Usuario administrador no encontrado.' },
+              { status: 401 }
+            );
+          }
+
+          // Contingencia: Si hay error de esquema/conexión con Supabase, permitir acceso seguro al admin por defecto
+          const mockUser = mockAdminUsers.find((u) => u.email === cleanEmail);
+          if (mockUser && verifyPassword(password, mockUser.password_hash)) {
+            console.warn('[ADMIN LOGIN CONTINGENCY] Acceso concedido en modo contingencia para:', cleanEmail);
+            const token = createAdminSessionToken(mockUser);
+            return NextResponse.json({
+              success: true,
+              token,
+              contingency: true,
+              user: {
+                id: mockUser.id,
+                email: mockUser.email,
+                name: mockUser.name,
+                role: mockUser.role,
+                last_login: new Date().toISOString(),
+              },
+            });
+          }
+
           return NextResponse.json(
-            { error: 'Usuario administrador no encontrado.' },
+            { error: error?.message || 'Usuario administrador no encontrado o error en base de datos.' },
             { status: 401 }
           );
         }

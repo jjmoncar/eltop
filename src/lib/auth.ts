@@ -169,6 +169,22 @@ export async function validateAdminRequest(req: NextRequest): Promise<AuthValida
             user: dbUser as AdminUser,
           };
         }
+
+        // Si la consulta a la BD falla por error de red/esquema pero el token JWT está válidamente firmado:
+        if (error) {
+          console.warn('[AUTH SESSION] Supabase query returned error, using verified session payload:', error.message);
+          return {
+            isValid: true,
+            user: {
+              id: sessionData.uid,
+              email: sessionData.email,
+              name: sessionData.name,
+              role: (sessionData.role as 'superadmin' | 'admin' | 'moderator') || 'admin',
+              is_active: true,
+              created_at: new Date().toISOString(),
+            },
+          };
+        }
       } catch (err) {
         console.error('Error validating admin user session against Supabase:', err);
       }
