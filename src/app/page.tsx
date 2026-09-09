@@ -38,7 +38,7 @@ export default function HomePage() {
 
   // Quick claim input states
   const [quickUrl, setQuickUrl] = useState('');
-  const [quickCategory, setQuickCategory] = useState('saas');
+  const [quickCategory, setQuickCategory] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -46,8 +46,12 @@ export default function HomePage() {
         const res = await fetch('/api/categories');
         if (res.ok) {
           const data = await res.json();
-          setCategories(data.categories || []);
+          const fetchedCats = data.categories || [];
+          setCategories(fetchedCats);
           setListings(data.listings || []);
+          if (fetchedCats.length > 0) {
+            setQuickCategory((prev) => prev || fetchedCats[0].slug);
+          }
         }
       } catch (err) {
         console.error('Error fetching home data:', err);
@@ -99,7 +103,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-stone-900 font-sans">
-      <Navbar currency={currency} onCurrencyChange={setCurrency} />
+      <Navbar currency={currency} onCurrencyChange={setCurrency} categories={categories} />
 
       {/* Category Pills Bar (Matching the screenshot top row) */}
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
@@ -370,7 +374,7 @@ export default function HomePage() {
         </div>
       </main>
 
-      <Footer />
+      <Footer categories={categories} />
     </div>
   );
 }

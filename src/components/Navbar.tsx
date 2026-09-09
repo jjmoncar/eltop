@@ -4,25 +4,44 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CurrencySelector } from './CurrencySelector';
-import { CurrencyCode } from '@/types/database';
+import { CurrencyCode, Category } from '@/types/database';
 import { Trophy, Activity, Plus, Search, Sparkles } from 'lucide-react';
 
 interface Props {
   currency: CurrencyCode;
   onCurrencyChange: (c: CurrencyCode) => void;
+  categories?: Category[];
 }
 
-export function Navbar({ currency, onCurrencyChange }: Props) {
+export function Navbar({ currency, onCurrencyChange, categories }: Props) {
   const pathname = usePathname();
+  const [liveCategories, setLiveCategories] = React.useState<Category[]>(categories || []);
+
+  React.useEffect(() => {
+    if (categories && categories.length > 0) {
+      setLiveCategories(categories);
+    } else {
+      fetch('/api/categories')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.categories && data.categories.length > 0) {
+            setLiveCategories(data.categories);
+          }
+        })
+        .catch((err) => console.error('Error fetching categories for navbar:', err));
+    }
+  }, [categories]);
 
   const navLinks = [
     { href: '/', label: 'Explorar' },
-    { href: '/saas', label: 'SaaS' },
-    { href: '/cripto', label: 'Cripto' },
-    { href: '/ecommerce', label: 'E-commerce' },
-    { href: '/marketing', label: 'Marketing' },
+    ...liveCategories.map((c) => ({
+      href: `/${c.slug}`,
+      label: c.name_es.split('&')[0].split(' e ')[0].trim(),
+    })),
     { href: '/actividad', label: 'Actividad' },
   ];
+
+  const primaryClaimSlug = liveCategories[0]?.slug || 'saas';
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#FAF8F5]/90 backdrop-blur-md border-b border-[#EAE6DF] transition-all">
@@ -85,7 +104,7 @@ export function Navbar({ currency, onCurrencyChange }: Props) {
           />
 
           <Link
-            href="/saas/reclamar"
+            href={`/${primaryClaimSlug}/reclamar`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white text-xs font-bold shadow-sm shadow-[#E05A38]/25 hover:scale-[1.02] active:scale-[0.98] transition transform"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />

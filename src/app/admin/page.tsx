@@ -26,7 +26,70 @@ import {
   UserX,
   Trash2,
   AlertTriangle,
+  FolderTree,
+  Edit3,
+  Plus,
+  Tag,
+  Globe,
+  Cpu,
+  ShoppingBag,
+  Sparkles,
+  Zap,
+  Flame,
+  Code,
+  Heart,
+  Trophy,
 } from 'lucide-react';
+
+const CATEGORY_ICON_OPTIONS = [
+  'Layers',
+  'Cpu',
+  'Coins',
+  'ShoppingBag',
+  'TrendingUp',
+  'Sparkles',
+  'Zap',
+  'Globe',
+  'Flame',
+  'Tag',
+  'Shield',
+  'Heart',
+  'Trophy',
+  'Code',
+];
+
+function renderCategoryIcon(iconName: string, className = 'w-4 h-4') {
+  switch (iconName) {
+    case 'Cpu':
+      return <Cpu className={className} />;
+    case 'Coins':
+      return <Coins className={className} />;
+    case 'ShoppingBag':
+      return <ShoppingBag className={className} />;
+    case 'TrendingUp':
+      return <TrendingUp className={className} />;
+    case 'Sparkles':
+      return <Sparkles className={className} />;
+    case 'Zap':
+      return <Zap className={className} />;
+    case 'Globe':
+      return <Globe className={className} />;
+    case 'Flame':
+      return <Flame className={className} />;
+    case 'Tag':
+      return <Tag className={className} />;
+    case 'Shield':
+      return <Shield className={className} />;
+    case 'Heart':
+      return <Heart className={className} />;
+    case 'Trophy':
+      return <Trophy className={className} />;
+    case 'Code':
+      return <Code className={className} />;
+    default:
+      return <Layers className={className} />;
+  }
+}
 
 export default function AdminPage() {
   // Login form state
@@ -56,8 +119,26 @@ export default function AdminPage() {
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
+  // Category management states
+  const [categoriesList, setCategoriesList] = useState<(Category & { listings_count?: number })[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<(Category & { listings_count?: number }) | null>(null);
+  const [catNameEs, setCatNameEs] = useState('');
+  const [catNamePt, setCatNamePt] = useState('');
+  const [catSlug, setCatSlug] = useState('');
+  const [catDescEs, setCatDescEs] = useState('');
+  const [catDescPt, setCatDescPt] = useState('');
+  const [catFloorUSD, setCatFloorUSD] = useState(20);
+  const [catIncrementUSD, setCatIncrementUSD] = useState(5);
+  const [catIcon, setCatIcon] = useState('Layers');
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<(Category & { listings_count?: number }) | null>(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+
   // Navigation and actions
-  const [activeTab, setActiveTab] = useState<'listings' | 'usdt' | 'bids' | 'users'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'categories' | 'usdt' | 'bids' | 'users'>('listings');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Create User Modal state
@@ -84,6 +165,7 @@ export default function AdminPage() {
         }
       }
       fetchMetrics(savedToken);
+      fetchCategories(savedToken);
       fetchAdminUsers(savedToken);
     }
   }, []);
@@ -127,6 +209,146 @@ export default function AdminPage() {
     }
   };
 
+  const fetchCategories = async (token: string) => {
+    if (!token) return;
+    setIsLoadingCategories(true);
+    try {
+      const res = await fetch('/api/admin/categories', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCategoriesList(data.categories || []);
+      }
+    } catch (err) {
+      console.error('Error fetching admin categories:', err);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
+  const resetCategoryForm = () => {
+    setCatNameEs('');
+    setCatNamePt('');
+    setCatSlug('');
+    setCatDescEs('');
+    setCatDescPt('');
+    setCatFloorUSD(20);
+    setCatIncrementUSD(5);
+    setCatIcon('Layers');
+    setCategoryError(null);
+    setEditingCategory(null);
+  };
+
+  const openCreateCategoryModal = () => {
+    resetCategoryForm();
+    setShowCategoryModal(true);
+  };
+
+  const openEditCategoryModal = (cat: Category & { listings_count?: number }) => {
+    setEditingCategory(cat);
+    setCatNameEs(cat.name_es);
+    setCatNamePt(cat.name_pt || cat.name_es);
+    setCatSlug(cat.slug);
+    setCatDescEs(cat.description_es || '');
+    setCatDescPt(cat.description_pt || '');
+    setCatFloorUSD(cat.min_floor_cents / 100);
+    setCatIncrementUSD(cat.min_bid_increment_cents / 100);
+    setCatIcon(cat.icon || 'Layers');
+    setCategoryError(null);
+    setShowCategoryModal(true);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catNameEs.trim()) {
+      setCategoryError('El nombre de la categoría en español es obligatorio.');
+      return;
+    }
+
+    setIsSavingCategory(true);
+    setCategoryError(null);
+
+    const isEditing = Boolean(editingCategory);
+    const url = '/api/admin/categories';
+    const method = isEditing ? 'PATCH' : 'POST';
+
+    const payload: Record<string, any> = {
+      name_es: catNameEs.trim(),
+      name_pt: catNamePt.trim() || catNameEs.trim(),
+      slug: catSlug.trim() || undefined,
+      description_es: catDescEs.trim() || undefined,
+      description_pt: catDescPt.trim() || undefined,
+      min_floor_cents: Math.round(Number(catFloorUSD) * 100),
+      min_bid_increment_cents: Math.round(Number(catIncrementUSD) * 100),
+      icon: catIcon || 'Layers',
+    };
+
+    if (isEditing && editingCategory) {
+      payload.id = editingCategory.id;
+    }
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setActionMessage(
+          isEditing
+            ? `Categoría "${catNameEs}" actualizada con éxito.`
+            : `Categoría "${catNameEs}" creada con éxito en la base de datos.`
+        );
+        setShowCategoryModal(false);
+        resetCategoryForm();
+        fetchCategories(authToken);
+        fetchMetrics(authToken);
+      } else {
+        setCategoryError(data.error || 'No se pudo guardar la categoría.');
+      }
+    } catch (err) {
+      setCategoryError('Error de conexión al guardar la categoría.');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    setIsDeletingCategory(true);
+
+    try {
+      const res = await fetch('/api/admin/categories', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ id: deletingCategory.id }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setActionMessage(`Categoría "${deletingCategory.name_es}" eliminada con éxito.`);
+        setDeletingCategory(null);
+        fetchCategories(authToken);
+        fetchMetrics(authToken);
+      } else {
+        alert(data.error || 'No se pudo eliminar la categoría.');
+      }
+    } catch (err) {
+      alert('Error de conexión al eliminar la categoría.');
+    } finally {
+      setIsDeletingCategory(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
@@ -153,6 +375,7 @@ export default function AdminPage() {
         sessionStorage.setItem('eltop_admin_token', data.token);
         sessionStorage.setItem('eltop_admin_user', JSON.stringify(data.user));
         fetchMetrics(data.token);
+        fetchCategories(data.token);
         fetchAdminUsers(data.token);
       } else {
         setLoginError(data.error || 'Credenciales incorrectas o no autorizadas.');
@@ -462,12 +685,13 @@ export default function AdminPage() {
                 <button
                   onClick={() => {
                     fetchMetrics(authToken);
+                    fetchCategories(authToken);
                     fetchAdminUsers(authToken);
                   }}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700 border border-stone-200 transition"
                   title="Actualizar datos del servidor"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading || isLoadingUsers ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading || isLoadingUsers || isLoadingCategories ? 'animate-spin' : ''}`} />
                   <span>Actualizar</span>
                 </button>
 
@@ -546,6 +770,21 @@ export default function AdminPage() {
               >
                 <Layers className="w-3.5 h-3.5" />
                 <span>Listados & Moderación ({metrics?.listings.length || 0})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('categories');
+                  fetchCategories(authToken);
+                }}
+                className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeTab === 'categories'
+                    ? 'bg-[#E05A38] text-white shadow-xs'
+                    : 'bg-white text-stone-600 hover:text-stone-900 border border-[#EAE6DF]'
+                }`}
+              >
+                <FolderTree className="w-3.5 h-3.5" />
+                <span>Categorías ({categoriesList.length || metrics?.categories.length || 0})</span>
               </button>
 
               <button
@@ -674,6 +913,123 @@ export default function AdminPage() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Categories Management */}
+            {activeTab === 'categories' && (
+              <div className="space-y-4">
+                {/* Categories Tab Header with Action Button */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-[#EAE6DF] shadow-xs">
+                  <div>
+                    <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                      <FolderTree className="w-4 h-4 text-[#E05A38]" />
+                      <span>Clasificación y Categorías de la Plataforma</span>
+                    </h2>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Gestiona las categorías en la base de datos. Se reflejan en tiempo real en la navegación, el selector y filtros públicos.
+                    </p>
+                  </div>
+                  <button
+                    onClick={openCreateCategoryModal}
+                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white text-xs font-bold shadow-xs transition shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Nueva Categoría</span>
+                  </button>
+                </div>
+
+                {/* Categories Table */}
+                <div className="rounded-2xl bg-white border border-[#EAE6DF] overflow-hidden shadow-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#FAF8F5] text-stone-600 uppercase font-bold border-b border-[#EAE6DF]">
+                        <tr>
+                          <th className="p-4">Categoría / Ícono</th>
+                          <th className="p-4">Ruta (Slug)</th>
+                          <th className="p-4">Precio Piso</th>
+                          <th className="p-4">Incremento Mínimo</th>
+                          <th className="p-4">Listados Activos</th>
+                          <th className="p-4 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0ECE4]">
+                        {categoriesList.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-stone-500">
+                              {isLoadingCategories ? 'Cargando categorías desde la base de datos...' : 'No hay categorías configuradas.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          categoriesList.map((cat) => (
+                            <tr key={cat.id} className="hover:bg-[#FAF8F5] transition">
+                              <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-[#FAF8F5] border border-[#EAE6DF] text-[#E05A38] flex items-center justify-center shrink-0">
+                                    {renderCategoryIcon(cat.icon, 'w-4 h-4')}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-stone-900">{cat.name_es}</div>
+                                    <div className="text-[11px] text-stone-400 italic">
+                                      PT: {cat.name_pt || cat.name_es}
+                                    </div>
+                                    {cat.description_es && (
+                                      <p className="text-[10px] text-stone-500 line-clamp-1 max-w-xs mt-0.5">
+                                        {cat.description_es}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <div className="flex items-center gap-1.5 font-mono text-stone-700">
+                                  <span className="text-stone-400">/</span>
+                                  <span className="font-semibold text-stone-900">{cat.slug}</span>
+                                  <a
+                                    href={`/${cat.slug}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-stone-400 hover:text-[#E05A38] transition ml-1"
+                                    title="Ver categoría en vivo"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                </div>
+                              </td>
+                              <td className="p-4 font-bold text-stone-900">
+                                ${(cat.min_floor_cents / 100).toFixed(0)} USD
+                              </td>
+                              <td className="p-4 text-stone-700">
+                                +${(cat.min_bid_increment_cents / 100).toFixed(0)} USD
+                              </td>
+                              <td className="p-4">
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-stone-100 text-stone-800 border border-stone-200">
+                                  {cat.listings_count ?? 0} {cat.listings_count === 1 ? 'listado' : 'listados'}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right space-x-2">
+                                <button
+                                  onClick={() => openEditCategoryModal(cat)}
+                                  className="px-3 py-1.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold transition inline-flex items-center gap-1 border border-stone-300"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  <span>Editar</span>
+                                </button>
+                                <button
+                                  onClick={() => setDeletingCategory(cat)}
+                                  className="px-3 py-1.5 rounded-full bg-red-50 hover:bg-red-100 text-red-700 font-bold transition inline-flex items-center gap-1 border border-red-200"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Eliminar</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -1043,6 +1399,284 @@ export default function AdminPage() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal: Create or Edit Category */}
+            {showCategoryModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
+                <div className="w-full max-w-xl rounded-3xl bg-white border border-[#EAE6DF] shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between border-b border-[#F0ECE4] pb-4">
+                    <div className="flex items-center gap-2 text-stone-900">
+                      <div className="w-9 h-9 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-[#E05A38] flex items-center justify-center">
+                        {renderCategoryIcon(catIcon, 'w-5 h-5')}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-base text-stone-900">
+                          {editingCategory ? 'Editar Categoría' : 'Nueva Categoría en Base de Datos'}
+                        </h3>
+                        <p className="text-xs text-stone-500">
+                          {editingCategory ? 'Modifica los parámetros de la categoría existente.' : 'Crea una nueva clasificación para la subasta y escaparate.'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowCategoryModal(false);
+                        resetCategoryForm();
+                      }}
+                      className="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {categoryError && (
+                    <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>{categoryError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSaveCategory} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Name ES */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Nombre (Español) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="ej: SaaS & Software"
+                          value={catNameEs}
+                          onChange={(e) => {
+                            setCatNameEs(e.target.value);
+                            if (!editingCategory && !catSlug) {
+                              setCatSlug(
+                                e.target.value
+                                  .toLowerCase()
+                                  .normalize('NFD')
+                                  .replace(/[\u0300-\u036f]/g, '')
+                                  .replace(/[^a-z0-9]+/g, '-')
+                                  .replace(/^-+|-+$/g, '')
+                              );
+                            }
+                          }}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-[#E05A38] focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Name PT */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Nombre (Portugués)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="ej: SaaS e Software"
+                          value={catNamePt}
+                          onChange={(e) => setCatNamePt(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-[#E05A38] focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Slug */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Ruta URL (Slug) *
+                        </label>
+                        <div className="flex items-center">
+                          <span className="px-3 py-2 rounded-l-xl bg-stone-100 border border-r-0 border-[#EAE6DF] text-stone-500 font-mono text-xs">
+                            eltop.lat/
+                          </span>
+                          <input
+                            type="text"
+                            required
+                            placeholder="saas"
+                            value={catSlug}
+                            onChange={(e) => setCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                            className="w-full px-3.5 py-2 rounded-r-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs font-mono focus:border-[#E05A38] focus:outline-none"
+                          />
+                        </div>
+                        <p className="text-[10px] text-stone-400 mt-1">
+                          Identificador único para enlaces directos y la navegación superior.
+                        </p>
+                      </div>
+
+                      {/* Description ES */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Descripción (Español)
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Herramientas de software, apps y plataformas para empresas y creadores..."
+                          value={catDescEs}
+                          onChange={(e) => setCatDescEs(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-[#E05A38] focus:outline-none resize-none"
+                        />
+                      </div>
+
+                      {/* Description PT */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Descripción (Portugués)
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Ferramentas de software, aplicativos e plataformas para empresas..."
+                          value={catDescPt}
+                          onChange={(e) => setCatDescPt(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-[#E05A38] focus:outline-none resize-none"
+                        />
+                      </div>
+
+                      {/* Floor Price USD */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Precio Piso Inicial ($ USD)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={1}
+                            required
+                            value={catFloorUSD}
+                            onChange={(e) => setCatFloorUSD(Number(e.target.value))}
+                            className="w-full pl-7 pr-4 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs font-bold text-stone-900 focus:border-[#E05A38] focus:outline-none"
+                          />
+                          <span className="absolute left-3 top-2 text-xs text-stone-400">$</span>
+                        </div>
+                        <p className="text-[10px] text-stone-400 mt-1">
+                          Precio mínimo para reclamar un puesto vacío.
+                        </p>
+                      </div>
+
+                      {/* Increment USD */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Incremento Mínimo por Puja ($ USD)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={1}
+                            required
+                            value={catIncrementUSD}
+                            onChange={(e) => setCatIncrementUSD(Number(e.target.value))}
+                            className="w-full pl-7 pr-4 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs font-bold text-stone-900 focus:border-[#E05A38] focus:outline-none"
+                          />
+                          <span className="absolute left-3 top-2 text-xs text-stone-400">+$</span>
+                        </div>
+                        <p className="text-[10px] text-stone-400 mt-1">
+                          Cantidad mínima a superar para adelantar puestos.
+                        </p>
+                      </div>
+
+                      {/* Icon Selector */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-stone-700 mb-2">
+                          Ícono de la Categoría
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {CATEGORY_ICON_OPTIONS.map((iconName) => {
+                            const isSelected = catIcon === iconName;
+                            return (
+                              <button
+                                key={iconName}
+                                type="button"
+                                onClick={() => setCatIcon(iconName)}
+                                className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border ${
+                                  isSelected
+                                    ? 'bg-[#E05A38] text-white border-[#E05A38] shadow-xs'
+                                    : 'bg-[#FAF8F5] text-stone-700 hover:bg-stone-100 border-[#EAE6DF]'
+                                }`}
+                              >
+                                {renderCategoryIcon(iconName, 'w-3.5 h-3.5')}
+                                <span>{iconName}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#F0ECE4]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCategoryModal(false);
+                          resetCategoryForm();
+                        }}
+                        className="px-4 py-2 rounded-full border border-stone-300 text-stone-700 text-xs font-semibold hover:bg-stone-50 transition"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingCategory}
+                        className="px-6 py-2 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
+                      >
+                        {isSavingCategory ? 'Guardando en BD...' : editingCategory ? 'Actualizar Categoría' : 'Crear en Base de Datos'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal: Delete Category Confirmation */}
+            {deletingCategory && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+                <div className="w-full max-w-md rounded-3xl bg-white border border-[#EAE6DF] shadow-2xl p-6 sm:p-8 space-y-5">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
+                    <Trash2 className="w-6 h-6" />
+                  </div>
+
+                  <div className="text-center space-y-2">
+                    <h3 className="font-bold text-base text-stone-900">
+                      ¿Eliminar categoría &quot;{deletingCategory.name_es}&quot;?
+                    </h3>
+                    <p className="text-xs text-stone-500 leading-relaxed">
+                      Esta acción eliminará la categoría permanentemente de la base de datos de Supabase.
+                    </p>
+                  </div>
+
+                  {deletingCategory.listings_count && deletingCategory.listings_count > 0 ? (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block font-bold mb-0.5">Advertencia:</strong>
+                        Esta categoría tiene <strong>{deletingCategory.listings_count} listado(s)</strong> activo(s). La base de datos eliminará en cascada estos listados y sus pujas asociadas.
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {categoriesList.length <= 1 && (
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                      No puedes eliminar la única categoría restante de la plataforma.
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeletingCategory(null)}
+                      className="flex-1 py-2.5 rounded-full border border-stone-300 text-stone-700 text-xs font-semibold hover:bg-stone-50 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingCategory || categoriesList.length <= 1}
+                      onClick={handleDeleteCategory}
+                      className="flex-1 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
+                    >
+                      {isDeletingCategory ? 'Eliminando...' : 'Sí, Eliminar de la BD'}
+                    </button>
                   </div>
                 </div>
               </div>

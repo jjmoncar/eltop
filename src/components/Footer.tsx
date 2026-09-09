@@ -1,8 +1,30 @@
 import React from 'react';
 import Link from 'next/link';
 import { Flame, Shield, Zap, TrendingUp } from 'lucide-react';
+import { Category } from '@/types/database';
 
-export function Footer() {
+interface FooterProps {
+  categories?: Category[];
+}
+
+export function Footer({ categories }: FooterProps) {
+  const [liveCategories, setLiveCategories] = React.useState<Category[]>(categories || []);
+
+  React.useEffect(() => {
+    if (categories && categories.length > 0) {
+      setLiveCategories(categories);
+    } else {
+      fetch('/api/categories')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.categories && data.categories.length > 0) {
+            setLiveCategories(data.categories);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [categories]);
+
   return (
     <footer className="w-full bg-[#FAF8F5] border-t border-[#EAE6DF] text-stone-600 mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -28,20 +50,20 @@ export function Footer() {
               <span>🇨🇴</span>
               <span>🇨🇱</span>
               <span>🇵🇪</span>
+              <span>🇲🇽</span>
               <span>🇻🇪</span>
-              <span className="text-[11px] text-stone-500 ml-1">Hecho para toda LATAM</span>
             </div>
           </div>
 
-          {/* Col 2: Reglas del Leaderboard */}
+          {/* Col 2: Dinámica */}
           <div className="space-y-3 text-xs">
             <h4 className="font-bold text-stone-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-[#E05A38]" />
               ¿Cómo funciona?
             </h4>
             <ul className="space-y-2 text-stone-500">
-              <li>• Cada puesto se gana pujando más que el ocupante actual.</li>
-              <li>• Tu enlace y logo quedan activos con tracking directo de clics.</li>
+              <li>• Compite por el puesto 1 al 10 en tu categoría.</li>
+              <li>• Cada clic hacia tu web es verificado y trazable.</li>
               <li>• Pagos instantáneos con Mercado Pago, Pix y USDT.</li>
               <li>• Los puestos nunca caducan hasta que alguien te supere.</li>
             </ul>
@@ -54,18 +76,13 @@ export function Footer() {
               Categorías
             </h4>
             <ul className="space-y-2 text-stone-500">
-              <li>
-                <Link href="/saas" className="hover:text-[#E05A38] transition">SaaS & Software</Link>
-              </li>
-              <li>
-                <Link href="/cripto" className="hover:text-[#E05A38] transition">Cripto & Web3</Link>
-              </li>
-              <li>
-                <Link href="/ecommerce" className="hover:text-[#E05A38] transition">E-commerce & Afiliados</Link>
-              </li>
-              <li>
-                <Link href="/marketing" className="hover:text-[#E05A38] transition">Marketing & Agencias</Link>
-              </li>
+              {liveCategories.map((cat) => (
+                <li key={cat.id}>
+                  <Link href={`/${cat.slug}`} className="hover:text-[#E05A38] transition">
+                    {cat.name_es}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 

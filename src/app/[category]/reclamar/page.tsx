@@ -40,7 +40,7 @@ function ReclamarContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-stone-900 font-sans">
-      <Navbar currency={currency} onCurrencyChange={setCurrency} />
+      <Navbar currency={currency} onCurrencyChange={setCurrency} categories={categories} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         {isLoading || !currentCategory ? (
@@ -58,7 +58,7 @@ function ReclamarContent() {
         )}
       </main>
 
-      <Footer />
+      <Footer categories={categories} />
     </div>
   );
 }
