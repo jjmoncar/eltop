@@ -76,3 +76,15 @@ export interface CurrencyRate {
   rateAgainstUSD: number; // 1 USD = X Local Currency
   decimals: number;
 }
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'superadmin' | 'admin' | 'moderator';
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  last_login?: string | null;
+}
+

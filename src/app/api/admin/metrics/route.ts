@@ -3,7 +3,8 @@ import { supabaseAdmin, mockBids, mockListings, mockCategories, isSupabaseConfig
 import { validateAdminRequest } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
-  if (!validateAdminRequest(req)) {
+  const auth = await validateAdminRequest(req);
+  if (!auth.isValid) {
     return NextResponse.json({ error: 'No autorizado. Se requiere token de administrador válido.' }, { status: 401 });
   }
 

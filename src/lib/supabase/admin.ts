@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { Category, Listing, Bid } from '@/types/database';
+import { Category, Listing, Bid, AdminUser } from '@/types/database';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -77,4 +77,17 @@ export const mockCategories: Category[] = [
 
 export const mockListings: Listing[] = [];
 export const mockBids: Bid[] = [];
+export const mockAdminUsers: (AdminUser & { password_hash: string })[] = [
+  {
+    id: '00000000-0000-0000-0000-000000000001',
+    email: 'admin@eltop.lat',
+    password_hash: 'e1toplat_admin_salt_2026:cb213ae94ee32956947689fa7e3d7912da9848b3ef00333fb31f7955205b4f4ead5b265ec630f6ad7ea0edb715a173322f7701e35cd6d812bb862962fff02d62',
+    name: 'Administrador Principal',
+    role: 'superadmin',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    last_login: null,
+  },
+];
+
 

@@ -143,6 +143,24 @@ CREATE POLICY "Click events are insertable by anyone" ON public.click_events
     FOR INSERT WITH CHECK (true);
 
 -- ------------------------------------------------------------------------------
+-- 6. Table: admin_users (Administrative User Management)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.admin_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'admin', -- 'superadmin', 'admin', 'moderator'
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    last_login TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_email ON public.admin_users (email);
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+
+-- ------------------------------------------------------------------------------
 -- Seed Initial Categories & Launch Listings
 -- ------------------------------------------------------------------------------
 INSERT INTO public.categories (id, slug, name_es, name_pt, description_es, description_pt, min_bid_increment_cents, min_floor_cents, icon)
@@ -150,7 +168,7 @@ VALUES
     ('11111111-1111-1111-1111-111111111111', 'saas', 'SaaS & Software', 'SaaS e Software', 'Herramientas de software, apps y plataformas para empresas y creadores.', 'Ferramentas de software, aplicativos e plataformas para empresas e criadores.', 500, 2000, 'Cpu'),
     ('22222222-2222-2222-2222-222222222222', 'cripto', 'Cripto & Web3', 'Cripto e Web3', 'Proyectos DeFi, exchanges, bots, tokens y comunidades crypto en LATAM.', 'Projetos DeFi, exchanges, bots, tokens e comunidades cripto na América Latina.', 500, 2000, 'Coins'),
     ('33333333-3333-3333-3333-333333333333', 'ecommerce', 'E-commerce & Afiliados', 'E-commerce e Afiliados', 'Tiendas online, productos digitales, programas de afiliados y dropshipping.', 'Lojas virtuais, produtos digitais, programas de afiliados e dropshipping.', 500, 1500, 'ShoppingBag'),
-    ('44444444-4444-4444-4444-444444444444', 'marketing', 'Marketing & Agencias', 'Marketing e Agências', 'Agencias de crecimiento, newsletters, creadores de contenido y herramientas de pauta.', 'Agências de crescimento, newsletters, criadores de conteúdo e ferramentas de mídia.', 500, 1500, 'TrendingUp')
+    ('44444444-4444-4444-4444-444444444444', 'marketing', 'Marketing & Agencias', 'Marketing e Agências', 'Agencias de crecimiento, newsletters, creadores de contenido y herramientas de pauta.', 'Agências de crescimento, newsletters, criadores de contenido y herramientas de mídia.', 500, 1500, 'TrendingUp')
 ON CONFLICT (slug) DO NOTHING;
 
 -- Seed Settings
@@ -158,3 +176,10 @@ INSERT INTO public.settings (key, value, updated_at)
 VALUES 
     ('general', '{"maintenance": false, "platform_name": "eltop.lat", "usdt_trc20_wallet": "TY1234567890SampleWalletAddressLATAM"}'::jsonb, now())
 ON CONFLICT (key) DO NOTHING;
+
+-- Seed Default Administrative User
+-- Default password is: admin123 (Change immediately in panel)
+INSERT INTO public.admin_users (id, email, password_hash, name, role, is_active)
+VALUES 
+    ('00000000-0000-0000-0000-000000000001', 'admin@eltop.lat', 'e1toplat_admin_salt_2026:cb213ae94ee32956947689fa7e3d7912da9848b3ef00333fb31f7955205b4f4ead5b265ec630f6ad7ea0edb715a173322f7701e35cd6d812bb862962fff02d62', 'Administrador Principal', 'superadmin', true)
+ON CONFLICT (email) DO NOTHING;
