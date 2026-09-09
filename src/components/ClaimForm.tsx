@@ -361,7 +361,7 @@ export function ClaimForm({
                   <input
                     type="text"
                     required
-                    placeholder="ej. FacturaFast LATAM"
+                    placeholder="ej. Mi Proyecto / Startup"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-stone-900 text-xs focus:border-[#E05A38] focus:bg-white focus:outline-none transition"
@@ -377,7 +377,7 @@ export function ClaimForm({
                     type="text"
                     required
                     maxLength={120}
-                    placeholder="ej. La plataforma de facturación electrónica automática para toda la región"
+                    placeholder="ej. La plataforma todo en uno para escalar tu negocio en LATAM"
                     value={tagline}
                     onChange={(e) => setTagline(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-stone-900 text-xs focus:border-[#E05A38] focus:bg-white focus:outline-none transition"
