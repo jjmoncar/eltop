@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { CurrencySelector } from './CurrencySelector';
 import { CurrencyCode, Category } from '@/types/database';
 import { Trophy, Activity, Plus, Search, Sparkles } from 'lucide-react';
+import { useLiveStats } from '@/hooks/useLiveStats';
 
 interface Props {
   currency: CurrencyCode;
@@ -16,6 +17,7 @@ interface Props {
 export function Navbar({ currency, onCurrencyChange, categories }: Props) {
   const pathname = usePathname();
   const [liveCategories, setLiveCategories] = React.useState<Category[]>(categories || []);
+  const stats = useLiveStats();
 
   React.useEffect(() => {
     if (categories && categories.length > 0) {
@@ -56,17 +58,19 @@ export function Navbar({ currency, onCurrencyChange, categories }: Props) {
             </span>
           </Link>
 
-          {/* Online stats badge matching screenshot */}
-          <div className="hidden lg:flex items-center gap-2 text-xs text-stone-500 bg-white px-3 py-1 rounded-full border border-[#EAE6DF] shadow-xs">
+          {/* Online stats badge with real platform statistics */}
+          <div className="hidden sm:flex items-center gap-2 text-xs text-stone-500 bg-white px-3 py-1 rounded-full border border-[#EAE6DF] shadow-xs">
             <span className="flex items-center gap-1.5 font-bold text-emerald-700">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
-              140 online
+              <span>{stats.online} online</span>
             </span>
             <span className="text-stone-300">·</span>
-            <span>1,475,684 visitas</span>
+            <span>
+              {stats.visits.toLocaleString()} {stats.visits === 1 ? 'visita' : 'visitas'}
+            </span>
             <span className="text-stone-300">·</span>
             <Link href="/actividad" className="text-stone-700 hover:text-[#E05A38] font-medium flex items-center gap-0.5 transition">
               stats →
