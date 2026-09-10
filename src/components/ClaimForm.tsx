@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Category, Listing, CurrencyCode } from '@/types/database';
 import { formatUSDOnly, formatCents } from '@/lib/currencies';
+import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import confetti from 'canvas-confetti';
 import {
   Flame,
@@ -16,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
+  Globe2,
 } from 'lucide-react';
 
 interface Props {
@@ -24,6 +26,25 @@ interface Props {
   listings: Listing[];
   targetPosParam?: number;
   currency: CurrencyCode;
+}
+
+function getInitialCountry(currency: CurrencyCode): string {
+  switch (currency) {
+    case 'BRL':
+      return 'BR';
+    case 'ARS':
+      return 'AR';
+    case 'COP':
+      return 'CO';
+    case 'CLP':
+      return 'CL';
+    case 'PEN':
+      return 'PE';
+    case 'VES':
+      return 'VE';
+    default:
+      return 'AR';
+  }
 }
 
 export function ClaimForm({
@@ -46,6 +67,28 @@ export function ClaimForm({
   const [logoUrl, setLogoUrl] = useState('');
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
+
+  // Country & Identity Document Fields
+  const initialCountryCode = getInitialCountry(currency);
+  const [countryCode, setCountryCode] = useState<string>(initialCountryCode);
+  const [docType, setDocType] = useState<string>(() => {
+    const c = getCountryByCode(initialCountryCode);
+    return c.documents[0]?.id || 'DNI';
+  });
+  const [docNumber, setDocNumber] = useState<string>('');
+
+  const currentCountry = getCountryByCode(countryCode);
+  const currentDoc = currentCountry.documents.find((d) => d.id === docType) || currentCountry.documents[0];
+
+  const handleCountryChange = (newCode: string) => {
+    setCountryCode(newCode);
+    const country = getCountryByCode(newCode);
+    if (country && country.documents.length > 0) {
+      setDocType(country.documents[0].id);
+      setDocNumber('');
+    }
+  };
+
   const [offeredAmountUSD, setOfferedAmountUSD] = useState<number>(20);
   const [paymentProvider, setPaymentProvider] = useState<'mercadopago' | 'stripe_pix' | 'usdt_manual'>('mercadopago');
 
@@ -119,6 +162,13 @@ export function ClaimForm({
       return;
     }
 
+    if (!docNumber.trim()) {
+      setErrorMessage(
+        `Por favor ingresa tu documento de identidad (${docType} - ${currentCountry.name}).`
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -136,6 +186,9 @@ export function ClaimForm({
           buyerEmail,
           bidAmountCents: Math.round(offeredAmountUSD * 100),
           paymentProvider,
+          country: countryCode,
+          docType,
+          docNumber: docNumber.trim(),
         }),
       });
 
@@ -443,11 +496,97 @@ export function ClaimForm({
                 </div>
               </div>
 
+              {/* 4. Country & Identity Document */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border border-[#EAE6DF] space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-800 flex items-center gap-1.5">
+                    <Globe2 className="w-3.5 h-3.5 text-[#E05A38]" />
+                    <span>4. País y Documento de Identidad del Titular *</span>
+                  </label>
+                  <span className="text-[11px] text-stone-500 hidden sm:inline">
+                    Documento oficial según tu país de origen
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* País */}
+                  <div>
+                    <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                      País de Residencia / Emisión *
+                    </label>
+                    <select
+                      value={countryCode}
+                      onChange={(e) => handleCountryChange(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-semibold focus:border-[#E05A38] focus:outline-none transition cursor-pointer shadow-2xs"
+                    >
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Tipo de Documento */}
+                  <div>
+                    <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                      Tipo de Documento *
+                    </label>
+                    <select
+                      value={docType}
+                      onChange={(e) => setDocType(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-semibold focus:border-[#E05A38] focus:outline-none transition cursor-pointer shadow-2xs"
+                    >
+                      {currentCountry.documents.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Número de Documento */}
+                  <div>
+                    <label className="block text-[11px] text-stone-600 font-medium mb-1">
+                      Número de {currentDoc?.name.split('(')[0].trim() || 'Documento'} *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={currentDoc?.placeholder || 'ej. 12345678'}
+                      value={docNumber}
+                      onChange={(e) => setDocNumber(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-mono focus:border-[#E05A38] focus:outline-none transition shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Clarification banner adapting to selected country */}
+                <div className="text-[11px] text-stone-600 bg-white p-3 rounded-xl border border-[#EAE6DF] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{currentCountry.flag}</span>
+                    <span>
+                      {countryCode === 'BR' ? (
+                        <>Para compradores en <strong>Brasil</strong> se solicita CPF o CNPJ conforme a normativas locales.</>
+                      ) : (
+                        <>
+                          Titular registrado con <strong>{currentDoc?.name.split('(')[0].trim()} ({currentCountry.name})</strong>.
+                          Al pagar desde fuera de Brasil tu documento oficial es válido y no necesitas poseer un CPF brasileño.
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 shrink-0 font-bold uppercase">
+                    {docType}
+                  </span>
+                </div>
+              </div>
+
               {/* Amount to Bid */}
               <div className="p-4 rounded-2xl bg-[#FDF2EE] border border-[#FADCD3] space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-stone-800">
-                    4. Monto a Pujar (USD)
+                    5. Monto a Pujar (USD)
                   </label>
                   <span className="text-base font-black text-[#E05A38]">
                     ${offeredAmountUSD} USD
@@ -479,7 +618,7 @@ export function ClaimForm({
               {/* Payment Method Selector */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-2">
-                  5. Método de Pago
+                  6. Método de Pago
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <button

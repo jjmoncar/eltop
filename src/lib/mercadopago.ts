@@ -22,6 +22,10 @@ export async function createPaymentPreference({
   title,
   unitPriceUsd,
   buyerEmail,
+  buyerName,
+  country = 'BR',
+  docType = 'CPF',
+  docNumber = '',
   backUrl,
   paymentProvider = 'mercadopago',
 }: {
@@ -29,6 +33,10 @@ export async function createPaymentPreference({
   title: string;
   unitPriceUsd: number;
   buyerEmail: string;
+  buyerName?: string;
+  country?: string;
+  docType?: string;
+  docNumber?: string;
   backUrl: string;
   paymentProvider?: string;
 }) {
@@ -49,19 +57,34 @@ export async function createPaymentPreference({
 
   const preference = new Preference(mpClient);
 
+  const cleanDoc = docNumber ? docNumber.replace(/[^\w]/g, '') : '';
+  const nameParts = (buyerName || 'Comprador').trim().split(/\s+/);
+  const firstName = nameParts[0] || 'Comprador';
+  const lastName = nameParts.slice(1).join(' ') || 'eltop.lat';
+
   const body: Record<string, any> = {
     items: [
       {
         id: bidId,
         title: `eltop.lat — ${title}`,
-        description: `Puesto en eltop.lat (Leaderboard LATAM - Equivalente a $${unitPriceUsd} USD)`,
+        description: `Puesto en eltop.lat (${country} - ${docType}: ${docNumber || 'N/A'}) - Eq. $${unitPriceUsd} USD`,
         quantity: 1,
         unit_price: unitPrice,
         currency_id: targetCurrency,
       },
     ],
     payer: {
+      name: firstName,
+      surname: lastName,
       email: buyerEmail || 'comprador@eltop.lat',
+      ...(cleanDoc
+        ? {
+            identification: {
+              type: docType || (country === 'BR' ? 'CPF' : 'OTHER'),
+              number: cleanDoc,
+            },
+          }
+        : {}),
     },
     external_reference: bidId,
     back_urls: {

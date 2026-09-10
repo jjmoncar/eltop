@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
       buyerEmail,
       bidAmountCents,
       paymentProvider = 'mercadopago',
+      country = 'BR',
+      docType = 'CPF',
+      docNumber = '',
     } = body;
 
     // 1. Validate inputs
@@ -82,6 +85,11 @@ export async function POST(req: NextRequest) {
           logo_url: cleanLogoUrl,
           payment_provider: paymentProvider,
           payment_status: 'pending',
+          raw_payment_data: {
+            country,
+            doc_type: docType,
+            doc_number: docNumber,
+          },
         })
         .select()
         .single();
@@ -109,6 +117,11 @@ export async function POST(req: NextRequest) {
         logo_url: cleanLogoUrl,
         payment_provider: paymentProvider,
         payment_status: 'pending',
+        raw_payment_data: {
+          country,
+          doc_type: docType,
+          doc_number: docNumber,
+        },
         created_at: new Date().toISOString(),
       };
       mockBids.unshift(mockBid);

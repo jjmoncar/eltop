@@ -45,12 +45,21 @@ export async function POST(req: NextRequest) {
     const hostUrl = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const backUrl = `${hostUrl}/${category ? category.slug : 'saas'}/reclamar`;
 
+    const rawData = (bid.raw_payment_data as any) || {};
+    const buyerCountry = rawData.country || 'BR';
+    const docType = rawData.doc_type || 'CPF';
+    const docNumber = rawData.doc_number || '';
+
     const unitPriceUsd = bid.bid_amount_cents / 100;
     const prefResult = await createPaymentPreference({
       bidId: bid.id,
       title: `${bid.target_name} (${category?.name_es || 'Leaderboard'})`,
       unitPriceUsd,
       buyerEmail: bid.buyer_email,
+      buyerName: bid.buyer_name,
+      country: buyerCountry,
+      docType,
+      docNumber,
       backUrl,
       paymentProvider: paymentProvider || bid.payment_provider,
     });
