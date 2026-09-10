@@ -48,7 +48,7 @@ export interface Bid {
   tagline: string;
   target_url: string;
   logo_url?: string | null;
-  payment_provider: 'mercadopago' | 'stripe_pix' | 'usdt_manual';
+  payment_provider: 'mercadopago' | 'stripe_pix' | 'paypal' | 'usdt_manual';
   payment_id?: string | null;
   payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   raw_payment_data?: Json | null;

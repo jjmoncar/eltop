@@ -110,7 +110,8 @@ export default function AdminPage() {
     totalRevenueCents: number;
     totalClicks: number;
     totalListings: number;
-    pendingUsdtCount: number;
+    pendingPaypalCount?: number;
+    pendingUsdtCount?: number;
     listings: Listing[];
     bids: Bid[];
     categories: Category[];
@@ -138,7 +139,7 @@ export default function AdminPage() {
   const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   // Navigation and actions
-  const [activeTab, setActiveTab] = useState<'listings' | 'categories' | 'usdt' | 'bids' | 'users'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'categories' | 'paypal' | 'usdt' | 'bids' | 'users'>('listings');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Create User Modal state
@@ -421,12 +422,12 @@ export default function AdminPage() {
     }
   };
 
-  const confirmUsdtPayment = async (bidId: string) => {
-    const txHash = prompt('Ingresa el ID de transacción USDT o comprobante:');
+  const confirmPayPalPayment = async (bidId: string) => {
+    const txHash = prompt('Ingresa el ID de transacción PayPal o comprobante (ej: 8XX99876YY):');
     if (!txHash) return;
 
     try {
-      const res = await fetch('/api/admin/confirm-usdt', {
+      const res = await fetch('/api/admin/confirm-paypal', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -435,16 +436,21 @@ export default function AdminPage() {
         body: JSON.stringify({ bidId, txHash }),
       });
       if (res.ok) {
-        setActionMessage('Pago USDT confirmado y puesto asignado con éxito.');
+        setActionMessage('Pago PayPal confirmado y puesto asignado con éxito.');
         fetchMetrics(authToken);
       } else if (res.status === 401) {
         alert('Sesión expirada o no autorizada.');
         handleLogout();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Error al confirmar el pago.');
       }
     } catch (err) {
       console.error(err);
     }
   };
+
+  const confirmUsdtPayment = confirmPayPalPayment;
 
   const handleCreateAdminUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -748,11 +754,11 @@ export default function AdminPage() {
 
                 <div className="p-5 rounded-2xl bg-white border border-[#EAE6DF] space-y-1 shadow-xs">
                   <div className="text-[11px] font-bold uppercase text-stone-500 flex items-center gap-1.5">
-                    <Coins className="w-3.5 h-3.5 text-purple-600" />
-                    USDT Pendientes
+                    <Globe className="w-3.5 h-3.5 text-[#0070BA]" />
+                    PayPal Pendientes
                   </div>
-                  <div className="text-xl sm:text-2xl font-black text-purple-600">
-                    {metrics.pendingUsdtCount}
+                  <div className="text-xl sm:text-2xl font-black text-[#0070BA]">
+                    {metrics.pendingPaypalCount ?? metrics.pendingUsdtCount ?? 0}
                   </div>
                 </div>
               </div>
@@ -788,15 +794,15 @@ export default function AdminPage() {
               </button>
 
               <button
-                onClick={() => setActiveTab('usdt')}
+                onClick={() => setActiveTab('paypal')}
                 className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === 'usdt'
-                    ? 'bg-[#E05A38] text-white shadow-xs'
+                  activeTab === 'paypal' || activeTab === 'usdt'
+                    ? 'bg-[#0070BA] text-white shadow-xs'
                     : 'bg-white text-stone-600 hover:text-stone-900 border border-[#EAE6DF]'
                 }`}
               >
-                <Coins className="w-3.5 h-3.5" />
-                <span>Pagos USDT / Manuales ({metrics?.pendingUsdtCount || 0})</span>
+                <Globe className="w-3.5 h-3.5" />
+                <span>Pagos PayPal / Manuales ({metrics?.pendingPaypalCount ?? metrics?.pendingUsdtCount ?? 0})</span>
               </button>
 
               <button
@@ -1034,8 +1040,8 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Tab: USDT Pending Payments */}
-            {activeTab === 'usdt' && metrics && (
+            {/* Tab: PayPal Pending Payments */}
+            {(activeTab === 'paypal' || activeTab === 'usdt') && metrics && (
               <div className="rounded-2xl bg-white border border-[#EAE6DF] overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -1044,21 +1050,22 @@ export default function AdminPage() {
                         <th className="p-4">Fecha</th>
                         <th className="p-4">Proyecto / Comprador</th>
                         <th className="p-4">Monto Ofrecido</th>
+                        <th className="p-4">Proveedor</th>
                         <th className="p-4">Email</th>
                         <th className="p-4">Estado</th>
                         <th className="p-4 text-right">Acción</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F0ECE4]">
-                      {metrics.bids.filter((b) => b.payment_provider === 'usdt_manual').length === 0 ? (
+                      {metrics.bids.filter((b) => b.payment_provider === 'paypal' || b.payment_provider === 'usdt_manual').length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-stone-500">
-                            No hay pagos en USDT pendientes de verificación.
+                          <td colSpan={7} className="p-8 text-center text-stone-500">
+                            No hay pagos en PayPal pendientes de verificación.
                           </td>
                         </tr>
                       ) : (
                         metrics.bids
-                          .filter((b) => b.payment_provider === 'usdt_manual')
+                          .filter((b) => b.payment_provider === 'paypal' || b.payment_provider === 'usdt_manual')
                           .map((b) => (
                             <tr key={b.id} className="hover:bg-[#FAF8F5] transition">
                               <td className="p-4 text-stone-500 font-mono">
@@ -1068,8 +1075,13 @@ export default function AdminPage() {
                                 <div className="font-bold text-stone-900">{b.target_name}</div>
                                 <div className="text-[11px] text-stone-500">{b.buyer_name}</div>
                               </td>
-                              <td className="p-4 font-bold text-[#E05A38]">
-                                {formatUSDOnly(b.bid_amount_cents)} USDT
+                              <td className="p-4 font-bold text-[#0070BA]">
+                                {formatUSDOnly(b.bid_amount_cents)} USD
+                              </td>
+                              <td className="p-4">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-[#0070BA] border border-sky-100">
+                                  {b.payment_provider === 'paypal' ? 'PayPal' : 'Manual / USDT'}
+                                </span>
                               </td>
                               <td className="p-4 text-stone-700 font-mono">
                                 {b.buyer_email}
@@ -1079,7 +1091,7 @@ export default function AdminPage() {
                                   className={`px-2 py-1 rounded-full text-[10px] font-bold ${
                                     b.payment_status === 'paid'
                                       ? 'bg-emerald-50 text-emerald-700'
-                                      : 'bg-[#FDF2EE] text-[#E05A38]'
+                                      : 'bg-amber-50 text-amber-700'
                                   }`}
                                 >
                                   {b.payment_status}
@@ -1088,11 +1100,11 @@ export default function AdminPage() {
                               <td className="p-4 text-right">
                                 {b.payment_status !== 'paid' && (
                                   <button
-                                    onClick={() => confirmUsdtPayment(b.id)}
-                                    className="px-3.5 py-1.5 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white font-bold transition flex items-center gap-1 inline-flex shadow-xs"
+                                    onClick={() => confirmPayPalPayment(b.id)}
+                                    className="px-3.5 py-1.5 rounded-full bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold transition flex items-center gap-1 inline-flex shadow-xs"
                                   >
                                     <Check className="w-3.5 h-3.5" />
-                                    <span>Confirmar Pago USDT</span>
+                                    <span>Confirmar Pago PayPal</span>
                                   </button>
                                 )}
                               </td>

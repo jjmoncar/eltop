@@ -64,7 +64,7 @@ export function Footer({ categories }: FooterProps) {
             <ul className="space-y-2 text-stone-500">
               <li>• Compite por el puesto 1 al 10 en tu categoría.</li>
               <li>• Cada clic hacia tu web es verificado y trazable.</li>
-              <li>• Pagos instantáneos con Mercado Pago, Pix y USDT.</li>
+              <li>• Pagos instantáneos con Mercado Pago, Pix y PayPal.</li>
               <li>• Los puestos nunca caducan hasta que alguien te supere.</li>
             </ul>
           </div>

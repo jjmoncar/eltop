@@ -90,14 +90,20 @@ export function ClaimForm({
   };
 
   const [offeredAmountUSD, setOfferedAmountUSD] = useState<number>(20);
-  const [paymentProvider, setPaymentProvider] = useState<'mercadopago' | 'stripe_pix' | 'usdt_manual'>('mercadopago');
+  const [paymentProvider, setPaymentProvider] = useState<'mercadopago' | 'stripe_pix' | 'paypal'>('mercadopago');
 
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successPayment, setSuccessPayment] = useState<boolean>(false);
   const [txHashInput, setTxHashInput] = useState('');
-  const [usdtSubmitted, setUsdtSubmitted] = useState(false);
+  const [paypalSubmitted, setPaypalSubmitted] = useState(false);
+  const [paypalInfo, setPaypalInfo] = useState<{
+    paypalUrl?: string;
+    paypalEmail?: string;
+    bidId?: string;
+    amountUsd?: string;
+  } | null>(null);
 
   // Active Category & Target Occupant
   const activeCategory = categories.find((c) => c.id === selectedCatId) || currentCategory;
@@ -200,13 +206,29 @@ export function ClaimForm({
 
       const bidId = bidData.bidId;
 
-      if (paymentProvider === 'usdt_manual') {
-        setUsdtSubmitted(true);
-        setIsSubmitting(false);
-        return;
+      if (paymentProvider === 'paypal') {
+        const ppRes = await fetch('/api/checkout/paypal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bidId }),
+        });
+
+        const ppData = await ppRes.json();
+        if (ppRes.ok) {
+          setPaypalInfo({
+            ...ppData,
+            bidId,
+            amountUsd: offeredAmountUSD.toFixed(2),
+          });
+          setPaypalSubmitted(true);
+          setIsSubmitting(false);
+          return;
+        } else {
+          throw new Error(ppData.error || 'Error al iniciar checkout con PayPal.');
+        }
       }
 
-      // 2. Create Checkout Preference
+      // 2. Create Mercado Pago / Pix Checkout Preference
       const checkoutRes = await fetch('/api/checkout/mercadopago', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -233,13 +255,40 @@ export function ClaimForm({
     }
   };
 
-  const handleManualUsdtConfirm = async () => {
+  const handlePayPalConfirm = async () => {
     if (!txHashInput) {
-      alert('Ingresa el Hash de transacción (TXID) de tu transferencia USDT.');
+      alert('Por favor ingresa el ID de transacción de PayPal o el correo asociado a tu cuenta de PayPal.');
       return;
     }
-    alert('Transacción recibida. El administrador verificará tu pago y activará el puesto en minutos.');
-    router.push(`/${activeCategory.slug}`);
+
+    try {
+      setIsSubmitting(true);
+      const res = await fetch('/api/bids/demo-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bidId: paypalInfo?.bidId || searchParams.get('bid_id'),
+          txHash: txHashInput,
+        }),
+      });
+
+      if (res.ok) {
+        setSuccessPayment(true);
+        confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      } else {
+        alert('Pago registrado correctamente. El administrador verificará tu comprobante de PayPal y activará tu puesto en minutos.');
+        router.push(`/${activeCategory.slug}`);
+      }
+    } catch {
+      alert('Pago registrado correctamente. El administrador verificará tu comprobante de PayPal y activará tu puesto en minutos.');
+      router.push(`/${activeCategory.slug}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (successPayment) {
@@ -303,36 +352,52 @@ export function ClaimForm({
             </div>
           )}
 
-          {usdtSubmitted ? (
-            <div className="p-6 rounded-2xl bg-[#FDF2EE] border border-[#FADCD3] space-y-4">
-              <div className="flex items-center gap-2 text-[#E05A38] font-bold text-sm">
-                <Coins className="w-5 h-5" />
-                <span>Pago con USDT (TRC20 / Polygon)</span>
+          {paypalSubmitted ? (
+            <div className="p-6 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-4">
+              <div className="flex items-center gap-2 text-[#003087] font-bold text-sm">
+                <span className="w-6 h-6 rounded-full bg-[#003087] text-white flex items-center justify-center font-black text-xs">
+                  P
+                </span>
+                <span>Pago con PayPal (Internacional / USD)</span>
               </div>
               <p className="text-xs text-stone-700">
-                Transfiere exactamente <strong>${offeredAmountUSD} USDT</strong> a la siguiente wallet:
+                Monto a pagar para reclamar el puesto: <strong>${offeredAmountUSD} USD</strong>
               </p>
-              <div className="p-3 bg-white rounded-xl border border-[#EAE6DF] font-mono text-xs text-stone-900 break-all select-all">
-                TY1234567890SampleWalletAddressLATAM
-              </div>
-              <div className="space-y-2">
+              {paypalInfo?.paypalEmail && (
+                <div className="p-3 bg-white rounded-xl border border-sky-100 text-xs text-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span>Cuenta receptora de PayPal:</span>
+                  <span className="font-mono font-bold text-[#003087] select-all">{paypalInfo.paypalEmail}</span>
+                </div>
+              )}
+              {paypalInfo?.paypalUrl && (
+                <a
+                  href={paypalInfo.paypalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 rounded-full bg-[#0070BA] hover:bg-[#003087] text-white font-bold text-xs transition shadow-xs flex items-center justify-center gap-2"
+                >
+                  <span>Abrir PayPal y Completar Pago →</span>
+                </a>
+              )}
+              <div className="space-y-2 pt-2 border-t border-sky-100">
                 <label className="text-xs text-stone-700 font-semibold">
-                  Pega aquí el Hash / TXID de tu transferencia:
+                  Ingresa aquí el ID de transacción de PayPal o correo del titular:
                 </label>
                 <input
                   type="text"
-                  placeholder="ej. e65487f...987a"
+                  placeholder="ej. 9XX1234567890 o tu-email@paypal.com"
                   value={txHashInput}
                   onChange={(e) => setTxHashInput(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs focus:border-[#E05A38] focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs focus:border-[#0070BA] focus:outline-none font-mono"
                 />
               </div>
               <button
                 type="button"
-                onClick={handleManualUsdtConfirm}
-                className="w-full py-3 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white font-bold text-xs transition shadow-xs"
+                onClick={handlePayPalConfirm}
+                disabled={isSubmitting}
+                className="w-full py-3 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white font-bold text-xs transition shadow-xs disabled:opacity-50"
               >
-                Notificar Pago Enviado
+                {isSubmitting ? 'Confirmando...' : 'Confirmar Pago PayPal'}
               </button>
             </div>
           ) : (
@@ -655,17 +720,19 @@ export function ClaimForm({
 
                   <button
                     type="button"
-                    onClick={() => setPaymentProvider('usdt_manual')}
+                    onClick={() => setPaymentProvider('paypal')}
                     className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
-                      paymentProvider === 'usdt_manual'
+                      paymentProvider === 'paypal'
                         ? 'bg-[#FDF2EE] border-[#E05A38] text-stone-900 shadow-xs'
                         : 'bg-white border-[#EAE6DF] text-stone-600 hover:text-stone-950'
                     }`}
                   >
-                    <Coins className="w-4 h-4 text-[#E05A38] shrink-0" />
+                    <div className="w-5 h-5 rounded-full bg-[#003087] text-white flex items-center justify-center font-black text-xs shrink-0">
+                      P
+                    </div>
                     <div>
-                      <div className="text-xs font-bold">USDT / Cripto 🇻🇪</div>
-                      <div className="text-[10px] text-stone-500">TRC20 / Polygon</div>
+                      <div className="text-xs font-bold">PayPal 🌐</div>
+                      <div className="text-[10px] text-stone-500">Internacional / USD</div>
                     </div>
                   </button>
                 </div>
@@ -679,9 +746,11 @@ export function ClaimForm({
               >
                 {isSubmitting
                   ? 'Procesando Puja...'
-                  : paymentProvider === 'usdt_manual'
-                  ? `Proceder a pagar $${offeredAmountUSD} USDT →`
-                  : `Pagar $${offeredAmountUSD} USD con ${paymentProvider === 'mercadopago' ? 'Mercado Pago' : 'Pix'} →`}
+                  : paymentProvider === 'paypal'
+                  ? `Proceder a pagar $${offeredAmountUSD} USD con PayPal →`
+                  : paymentProvider === 'stripe_pix'
+                  ? `Pagar $${offeredAmountUSD} USD con Pix →`
+                  : `Pagar $${offeredAmountUSD} USD con Mercado Pago →`}
               </button>
 
               <div className="flex items-center justify-center gap-2 text-[11px] text-stone-500">

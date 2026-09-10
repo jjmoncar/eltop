@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'eltop.lat — El Leaderboard de Subasta para LATAM',
     description:
-      'Lidera el ranking de tu industria en América Latina. Subasta en vivo con pagos en Mercado Pago, Pix y USDT.',
+      'Lidera el ranking de tu industria en América Latina. Subasta en vivo con pagos en Mercado Pago, Pix y PayPal.',
     url: 'https://eltop.lat',
     siteName: 'eltop.lat',
     locale: 'es_LA',

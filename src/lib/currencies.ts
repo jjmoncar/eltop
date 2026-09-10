@@ -52,7 +52,7 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyRate> = {
   VES: {
     code: 'VES',
     symbol: 'Bs.',
-    name: 'Bolívares / USDT (VES)',
+    name: 'Bolívares (VES)',
     flag: '🇻🇪',
     rateAgainstUSD: 65.0,
     decimals: 2,

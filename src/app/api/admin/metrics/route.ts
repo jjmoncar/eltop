@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       const { data: categories } = await supabaseAdmin.from('categories').select('*');
 
       const paidBids = bids?.filter((b) => b.payment_status === 'paid') || [];
-      const pendingUsdtBids = bids?.filter((b) => b.payment_status === 'pending' && b.payment_provider === 'usdt_manual') || [];
+      const pendingPaypalBids = bids?.filter((b) => b.payment_status === 'pending' && (b.payment_provider === 'paypal' || b.payment_provider === 'usdt_manual')) || [];
       const totalRevenueCents = paidBids.reduce((acc, b) => acc + (b.bid_amount_cents || 0), 0);
       const totalClicks = listings?.reduce((acc, l) => acc + (l.click_count || 0), 0) || 0;
 
@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
         totalRevenueCents,
         totalClicks,
         totalListings: listings?.length || 0,
-        pendingUsdtCount: pendingUsdtBids.length,
+        pendingPaypalCount: pendingPaypalBids.length,
+        pendingUsdtCount: pendingPaypalBids.length,
         listings: listings || [],
         bids: bids || [],
         categories: categories || [],
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     }
 
     const paidBids = mockBids.filter((b) => b.payment_status === 'paid');
-    const pendingUsdt = mockBids.filter((b) => b.payment_status === 'pending' && b.payment_provider === 'usdt_manual');
+    const pendingPaypal = mockBids.filter((b) => b.payment_status === 'pending' && (b.payment_provider === 'paypal' || b.payment_provider === 'usdt_manual'));
     const totalRevenueCents = paidBids.reduce((acc, b) => acc + b.bid_amount_cents, 0);
     const totalClicks = mockListings.reduce((acc, l) => acc + l.click_count, 0);
 
@@ -39,7 +40,8 @@ export async function GET(req: NextRequest) {
       totalRevenueCents,
       totalClicks,
       totalListings: mockListings.length,
-      pendingUsdtCount: pendingUsdt.length,
+      pendingPaypalCount: pendingPaypal.length,
+      pendingUsdtCount: pendingPaypal.length,
       listings: mockListings,
       bids: mockBids,
       categories: mockCategories,
