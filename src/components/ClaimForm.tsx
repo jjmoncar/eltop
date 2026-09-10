@@ -498,26 +498,26 @@ export function ClaimForm({
 
               {/* 4. Country & Identity Document */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border border-[#EAE6DF] space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <label className="text-xs font-bold uppercase tracking-wider text-stone-800 flex items-center gap-1.5">
                     <Globe2 className="w-3.5 h-3.5 text-[#E05A38]" />
                     <span>4. País y Documento de Identidad del Titular *</span>
                   </label>
                   <span className="text-[11px] text-stone-500 hidden sm:inline">
-                    Documento oficial según tu país de origen
+                    Documento oficial según tu país
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                   {/* País */}
-                  <div>
-                    <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                      País de Residencia / Emisión *
+                  <div className="flex flex-col">
+                    <label className="text-[11px] text-stone-600 font-medium h-6 sm:h-7 flex items-end mb-1.5 leading-tight">
+                      <span>País de Residencia *</span>
                     </label>
                     <select
                       value={countryCode}
                       onChange={(e) => handleCountryChange(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-semibold focus:border-[#E05A38] focus:outline-none transition cursor-pointer shadow-2xs"
+                      className="w-full h-10 px-3 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-semibold focus:border-[#E05A38] focus:outline-none transition cursor-pointer shadow-2xs"
                     >
                       {COUNTRIES.map((c) => (
                         <option key={c.code} value={c.code}>
@@ -528,14 +528,14 @@ export function ClaimForm({
                   </div>
 
                   {/* Tipo de Documento */}
-                  <div>
-                    <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                      Tipo de Documento *
+                  <div className="flex flex-col">
+                    <label className="text-[11px] text-stone-600 font-medium h-6 sm:h-7 flex items-end mb-1.5 leading-tight">
+                      <span>Tipo de Documento *</span>
                     </label>
                     <select
                       value={docType}
                       onChange={(e) => setDocType(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-semibold focus:border-[#E05A38] focus:outline-none transition cursor-pointer shadow-2xs"
+                      className="w-full h-10 px-3 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-semibold focus:border-[#E05A38] focus:outline-none transition cursor-pointer shadow-2xs"
                     >
                       {currentCountry.documents.map((d) => (
                         <option key={d.id} value={d.id}>
@@ -546,9 +546,9 @@ export function ClaimForm({
                   </div>
 
                   {/* Número de Documento */}
-                  <div>
-                    <label className="block text-[11px] text-stone-600 font-medium mb-1">
-                      Número de {currentDoc?.name.split('(')[0].trim() || 'Documento'} *
+                  <div className="flex flex-col">
+                    <label className="text-[11px] text-stone-600 font-medium h-6 sm:h-7 flex items-end mb-1.5 leading-tight truncate">
+                      <span>Número de {currentDoc?.id || 'Documento'} *</span>
                     </label>
                     <input
                       type="text"
@@ -556,7 +556,7 @@ export function ClaimForm({
                       placeholder={currentDoc?.placeholder || 'ej. 12345678'}
                       value={docNumber}
                       onChange={(e) => setDocNumber(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-mono focus:border-[#E05A38] focus:outline-none transition shadow-2xs"
+                      className="w-full h-10 px-3.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs font-mono focus:border-[#E05A38] focus:outline-none transition shadow-2xs"
                     />
                   </div>
                 </div>
