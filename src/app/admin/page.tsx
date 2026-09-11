@@ -91,6 +91,63 @@ function renderCategoryIcon(iconName: string, className = 'w-4 h-4') {
   }
 }
 
+function checkPasswordStrength(password: string) {
+  return {
+    length: Boolean(password && password.length >= 8),
+    uppercase: /[A-Z]/.test(password || ''),
+    lowercase: /[a-z]/.test(password || ''),
+    number: /[0-9]/.test(password || ''),
+    special: /[^A-Za-z0-9]/.test(password || ''),
+    isValid:
+      Boolean(password && password.length >= 8) &&
+      /[A-Z]/.test(password || '') &&
+      /[a-z]/.test(password || '') &&
+      /[0-9]/.test(password || '') &&
+      /[^A-Za-z0-9]/.test(password || ''),
+  };
+}
+
+function PasswordChecklist({ password }: { password: string }) {
+  const strength = checkPasswordStrength(password);
+  const items = [
+    { label: 'Mínimo 8 caracteres', pass: strength.length },
+    { label: 'Una mayúscula (A-Z)', pass: strength.uppercase },
+    { label: 'Una minúscula (a-z)', pass: strength.lowercase },
+    { label: 'Un número (0-9)', pass: strength.number },
+    { label: 'Un carácter especial (!@#$%^&*)', pass: strength.special },
+  ];
+
+  return (
+    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/80 text-[11px] space-y-1.5 sm:col-span-2">
+      <div className="font-bold text-stone-700 flex items-center justify-between">
+        <span>Requisitos de seguridad de la contraseña:</span>
+        <span className={strength.isValid ? 'text-emerald-600 font-bold' : 'text-amber-600'}>
+          {strength.isValid ? '✓ Cumple todas las reglas' : 'Obligatorio'}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+        {items.map((it, idx) => (
+          <div
+            key={idx}
+            className={`flex items-center gap-1.5 transition-colors ${
+              it.pass ? 'text-emerald-700 font-semibold' : 'text-stone-400'
+            }`}
+          >
+            <span
+              className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                it.pass ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-500'
+              }`}
+            >
+              {it.pass ? '✓' : '•'}
+            </span>
+            <span>{it.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   // Login form state
   const [loginMode, setLoginMode] = useState<'credentials' | 'secret'>('credentials');
@@ -150,6 +207,17 @@ export default function AdminPage() {
   const [newUserRole, setNewUserRole] = useState<'admin' | 'moderator' | 'superadmin'>('admin');
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [createUserError, setCreateUserError] = useState<string | null>(null);
+
+  // Edit User Modal state
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserRole, setEditUserRole] = useState<'admin' | 'moderator' | 'superadmin'>('admin');
+  const [editUserIsActive, setEditUserIsActive] = useState(true);
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [editUserError, setEditUserError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check saved token and user session
@@ -455,6 +523,13 @@ export default function AdminPage() {
   const handleCreateAdminUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateUserError(null);
+
+    const strength = checkPasswordStrength(newUserPassword);
+    if (!strength.isValid) {
+      setCreateUserError('La contraseña debe cumplir con los 5 requisitos de seguridad (mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial).');
+      return;
+    }
+
     setIsCreatingUser(true);
 
     try {
@@ -487,6 +562,75 @@ export default function AdminPage() {
       setCreateUserError('Error de red al crear usuario.');
     } finally {
       setIsCreatingUser(false);
+    }
+  };
+
+  const openEditUserModal = (user: AdminUser) => {
+    setEditingUser(user);
+    setEditUserName(user.name);
+    setEditUserEmail(user.email);
+    setEditUserRole(user.role as any);
+    setEditUserIsActive(user.is_active);
+    setEditUserPassword('');
+    setEditUserError(null);
+    setShowEditUserModal(true);
+  };
+
+  const handleUpdateAdminUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditUserError(null);
+
+    if (editUserPassword) {
+      const strength = checkPasswordStrength(editUserPassword);
+      if (!strength.isValid) {
+        setEditUserError('La nueva contraseña debe cumplir con los 5 requisitos de seguridad (mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial).');
+        return;
+      }
+    }
+
+    setIsUpdatingUser(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          userId: editingUser.id,
+          name: editUserName,
+          email: editUserEmail,
+          role: editUserRole,
+          isActive: editUserIsActive,
+          newPassword: editUserPassword || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setActionMessage(`Usuario "${editUserName}" actualizado exitosamente.`);
+        setShowEditUserModal(false);
+        setEditingUser(null);
+        fetchAdminUsers(authToken);
+
+        if (currentUser?.id === editingUser.id || currentUser?.email === editingUser.email) {
+          const updated = {
+            ...currentUser,
+            name: editUserName,
+            email: editUserEmail,
+            role: editUserRole,
+          };
+          setCurrentUser(updated);
+          sessionStorage.setItem('eltop_admin_user', JSON.stringify(updated));
+        }
+      } else {
+        setEditUserError(data.error || 'Error al actualizar usuario.');
+      }
+    } catch (err) {
+      setEditUserError('Error de red al actualizar usuario.');
+    } finally {
+      setIsUpdatingUser(false);
     }
   };
 
@@ -1260,18 +1404,19 @@ export default function AdminPage() {
 
                       <div>
                         <label className="block text-xs font-bold text-stone-700 mb-1">
-                          Contraseña Temporal * (Mín. 6 caracteres)
+                          Contraseña * (Mín. 8 caracteres, mayúscula, minúscula, número y especial)
                         </label>
                         <input
                           type="password"
                           required
-                          minLength={6}
                           placeholder="••••••••"
                           value={newUserPassword}
                           onChange={(e) => setNewUserPassword(e.target.value)}
                           className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-[#E05A38] focus:outline-none"
                         />
                       </div>
+
+                      <PasswordChecklist password={newUserPassword} />
 
                       <div>
                         <label className="block text-xs font-bold text-stone-700 mb-1">
@@ -1302,6 +1447,130 @@ export default function AdminPage() {
                           className="px-5 py-2 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
                         >
                           {isCreatingUser ? 'Guardando en BD...' : 'Guardar en Base de Datos'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Edit Admin Modal */}
+                {showEditUserModal && editingUser && (
+                  <div className="p-6 rounded-2xl bg-white border-2 border-sky-500 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center">
+                          <Edit3 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-stone-900 text-sm">
+                            Editar Administrador
+                          </h4>
+                          <p className="text-[11px] text-stone-500 font-mono">
+                            {editingUser.email} (ID: {editingUser.id})
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowEditUserModal(false)}
+                        className="text-stone-400 hover:text-stone-700 p-1"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {editUserError && (
+                      <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+                        {editUserError}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleUpdateAdminUser} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Nombre Completo *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editUserName}
+                          onChange={(e) => setEditUserName(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-sky-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Correo Electrónico *
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={editUserEmail}
+                          onChange={(e) => setEditUserEmail(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-sky-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Rol de Acceso *
+                        </label>
+                        <select
+                          value={editUserRole}
+                          onChange={(e) => setEditUserRole(e.target.value as any)}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-sky-500 focus:outline-none cursor-pointer"
+                        >
+                          <option value="admin">Administrador (Control total)</option>
+                          <option value="moderator">Moderador (Solo aprobación)</option>
+                          <option value="superadmin">Superadmin</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Estado de la Cuenta *
+                        </label>
+                        <select
+                          value={editUserIsActive ? 'active' : 'inactive'}
+                          onChange={(e) => setEditUserIsActive(e.target.value === 'active')}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-sky-500 focus:outline-none cursor-pointer"
+                        >
+                          <option value="active">Activo (Acceso permitido)</option>
+                          <option value="inactive">Desactivado (Acceso revocado)</option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-stone-700 mb-1">
+                          Nueva Contraseña (Opcional — dejar en blanco para conservar la actual)
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="•••••••• (Escribe aquí solo si deseas cambiarla)"
+                          value={editUserPassword}
+                          onChange={(e) => setEditUserPassword(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs focus:border-sky-500 focus:outline-none"
+                        />
+                      </div>
+
+                      {editUserPassword && (
+                        <PasswordChecklist password={editUserPassword} />
+                      )}
+
+                      <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
+                        <button
+                          type="button"
+                          onClick={() => setShowEditUserModal(false)}
+                          className="px-4 py-2 rounded-full border border-stone-300 text-stone-700 text-xs font-semibold hover:bg-stone-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isUpdatingUser}
+                          className="px-5 py-2 rounded-full bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
+                        >
+                          {isUpdatingUser ? 'Guardando Cambios...' : 'Guardar Cambios'}
                         </button>
                       </div>
                     </form>
@@ -1371,39 +1640,59 @@ export default function AdminPage() {
                                     ? new Date(user.last_login).toLocaleString()
                                     : 'Nunca'}
                                 </td>
-                                <td className="p-4 text-right space-x-2">
-                                  {!isMe && (
-                                    <>
-                                      <button
-                                        onClick={() => handleToggleUserStatus(user.id, user.is_active)}
-                                        className={`px-3 py-1 rounded-full font-bold transition inline-flex items-center gap-1 ${
-                                          user.is_active
-                                            ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
-                                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-                                        }`}
-                                      >
-                                        {user.is_active ? (
-                                          <>
-                                            <UserX className="w-3 h-3" />
-                                            <span>Desactivar</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <UserCheck className="w-3 h-3" />
-                                            <span>Activar</span>
-                                          </>
-                                        )}
-                                      </button>
+                                <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                  <button
+                                    onClick={() => openEditUserModal(user)}
+                                    className="px-3 py-1 rounded-full bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 font-bold transition inline-flex items-center gap-1 text-xs shadow-2xs"
+                                    title="Editar datos y credenciales"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    <span>Editar</span>
+                                  </button>
 
-                                      <button
-                                        onClick={() => handleDeleteUser(user.id, user.name)}
-                                        className="px-3 py-1 rounded-full bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 font-bold transition inline-flex items-center gap-1"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                        <span>Eliminar</span>
-                                      </button>
-                                    </>
+                                  {!isMe && (
+                                    <button
+                                      onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                                      className={`px-3 py-1 rounded-full font-bold transition inline-flex items-center gap-1 text-xs shadow-2xs ${
+                                        user.is_active
+                                          ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                      }`}
+                                      title={user.is_active ? 'Desactivar acceso' : 'Reactivar acceso'}
+                                    >
+                                      {user.is_active ? (
+                                        <>
+                                          <UserX className="w-3 h-3" />
+                                          <span>Desactivar</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <UserCheck className="w-3 h-3" />
+                                          <span>Activar</span>
+                                        </>
+                                      )}
+                                    </button>
                                   )}
+
+                                  <button
+                                    onClick={() => {
+                                      if (isMe) {
+                                        alert('No puedes eliminar tu propia cuenta mientras estás en sesión activa.');
+                                        return;
+                                      }
+                                      handleDeleteUser(user.id, user.name);
+                                    }}
+                                    disabled={isMe}
+                                    className={`px-3 py-1 rounded-full font-bold transition inline-flex items-center gap-1 text-xs shadow-2xs ${
+                                      isMe
+                                        ? 'bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed opacity-50'
+                                        : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                                    }`}
+                                    title={isMe ? 'No puedes eliminar tu propia cuenta en sesión' : 'Eliminar administrador permanentemente'}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Eliminar</span>
+                                  </button>
                                 </td>
                               </tr>
                             );

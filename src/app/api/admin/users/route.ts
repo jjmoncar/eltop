@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, isSupabaseConfigured, mockAdminUsers } from '@/lib/supabase/admin';
-import { validateAdminRequest, hashPassword, ensureDefaultAdminUserInDB } from '@/lib/auth';
+import { validateAdminRequest, hashPassword, validatePasswordStrength, ensureDefaultAdminUserInDB } from '@/lib/auth';
 import { AdminUser } from '@/types/database';
 
 export async function GET(req: NextRequest) {
@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Todos los campos (correo, nombre, contraseña) son obligatorios.' }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres.' }, { status: 400 });
+    const pwdValidation = validatePasswordStrength(password);
+    if (!pwdValidation.isValid) {
+      return NextResponse.json({ error: pwdValidation.message }, { status: 400 });
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -142,7 +143,7 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { userId, isActive, role, newPassword } = body;
+    const { userId, name, email, isActive, role, newPassword } = body;
 
     if (!userId) {
       return NextResponse.json({ error: 'Falta userId' }, { status: 400 });
@@ -152,31 +153,86 @@ export async function PATCH(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    if (typeof isActive === 'boolean') updates.is_active = isActive;
-    if (role) updates.role = role;
-    if (newPassword && newPassword.length >= 6) {
+    if (typeof name === 'string' && name.trim()) {
+      updates.name = name.trim();
+    }
+
+    if (typeof email === 'string' && email.trim()) {
+      const cleanEmail = email.trim().toLowerCase();
+      // Verificar si otro usuario ya usa este correo
+      if (isSupabaseConfigured && supabaseAdmin) {
+        const { data: existingEmail } = await supabaseAdmin
+          .from('admin_users')
+          .select('id')
+          .eq('email', cleanEmail)
+          .neq('id', userId)
+          .maybeSingle();
+
+        if (existingEmail) {
+          return NextResponse.json({ error: 'Ya existe otro administrador con este correo electrónico.' }, { status: 409 });
+        }
+      } else {
+        const emailExists = mockAdminUsers.some((u) => u.email === cleanEmail && u.id !== userId);
+        if (emailExists) {
+          return NextResponse.json({ error: 'Ya existe otro administrador con este correo electrónico.' }, { status: 409 });
+        }
+      }
+      updates.email = cleanEmail;
+    }
+
+    if (typeof isActive === 'boolean') {
+      updates.is_active = isActive;
+    }
+
+    if (role && ['admin', 'moderator', 'superadmin'].includes(role)) {
+      updates.role = role;
+    }
+
+    if (newPassword && typeof newPassword === 'string' && newPassword.trim()) {
+      const pwdValidation = validatePasswordStrength(newPassword);
+      if (!pwdValidation.isValid) {
+        return NextResponse.json({ error: pwdValidation.message }, { status: 400 });
+      }
       updates.password_hash = hashPassword(newPassword);
     }
 
+    let updatedUser: any = null;
+
     if (isSupabaseConfigured && supabaseAdmin) {
-      const { error } = await supabaseAdmin
+      const { data: updated, error } = await supabaseAdmin
         .from('admin_users')
         .update(updates)
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id, email, name, role, is_active, created_at, last_login')
+        .single();
 
       if (error) throw error;
+      updatedUser = updated;
     } else {
       const user = mockAdminUsers.find((u) => u.id === userId);
       if (user) {
-        if (typeof isActive === 'boolean') user.is_active = isActive;
-        if (role) user.role = role;
-        if (newPassword && newPassword.length >= 6) {
-          user.password_hash = hashPassword(newPassword);
-        }
+        if (updates.name) user.name = updates.name;
+        if (updates.email) user.email = updates.email;
+        if (typeof updates.is_active === 'boolean') user.is_active = updates.is_active;
+        if (updates.role) user.role = updates.role;
+        if (updates.password_hash) user.password_hash = updates.password_hash;
+        updatedUser = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          is_active: user.is_active,
+          created_at: user.created_at,
+          last_login: user.last_login,
+        };
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Usuario actualizado con éxito.' });
+    return NextResponse.json({
+      success: true,
+      message: 'Usuario actualizado con éxito.',
+      user: updatedUser,
+    });
   } catch (error) {
     console.error('Error updating admin user:', error);
     return NextResponse.json({ error: 'Error al actualizar usuario' }, { status: 500 });

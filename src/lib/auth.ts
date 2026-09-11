@@ -38,6 +38,52 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 }
 
 /**
+ * Valida que una contraseña cumpla con las políticas de seguridad requeridas:
+ * - Mínimo 8 caracteres
+ * - Al menos una letra mayúscula
+ * - Al menos una letra minúscula
+ * - Al menos un número
+ * - Al menos un carácter especial
+ */
+export function validatePasswordStrength(password: string): {
+  isValid: boolean;
+  errors: string[];
+  message: string;
+  checks: {
+    length: boolean;
+    uppercase: boolean;
+    lowercase: boolean;
+    number: boolean;
+    special: boolean;
+  };
+} {
+  const checks = {
+    length: Boolean(password && password.length >= 8),
+    uppercase: /[A-Z]/.test(password || ''),
+    lowercase: /[a-z]/.test(password || ''),
+    number: /[0-9]/.test(password || ''),
+    special: /[^A-Za-z0-9]/.test(password || ''),
+  };
+
+  const errors: string[] = [];
+  if (!checks.length) errors.push('mínimo 8 caracteres');
+  if (!checks.uppercase) errors.push('al menos una letra mayúscula');
+  if (!checks.lowercase) errors.push('al menos una letra minúscula');
+  if (!checks.number) errors.push('al menos un número');
+  if (!checks.special) errors.push('al menos un carácter especial (ej. !@#$%^&*)');
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    message:
+      errors.length === 0
+        ? ''
+        : `La contraseña debe cumplir: ${errors.join(', ')}.`,
+    checks,
+  };
+}
+
+/**
  * Obtiene la clave de firma de sesiones administrativas.
  */
 function getSigningKey(): string {
