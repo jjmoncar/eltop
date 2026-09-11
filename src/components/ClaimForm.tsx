@@ -19,6 +19,7 @@ import {
   Eye,
   Globe2,
 } from 'lucide-react';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 interface Props {
   categories: Category[];
@@ -96,11 +97,8 @@ export function ClaimForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successPayment, setSuccessPayment] = useState<boolean>(false);
-  const [txHashInput, setTxHashInput] = useState('');
   const [paypalSubmitted, setPaypalSubmitted] = useState(false);
   const [paypalInfo, setPaypalInfo] = useState<{
-    paypalUrl?: string;
-    paypalEmail?: string;
     bidId?: string;
     amountUsd?: string;
   } | null>(null);
@@ -207,25 +205,13 @@ export function ClaimForm({
       const bidId = bidData.bidId;
 
       if (paymentProvider === 'paypal') {
-        const ppRes = await fetch('/api/checkout/paypal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bidId }),
+        setPaypalInfo({
+          bidId,
+          amountUsd: offeredAmountUSD.toFixed(2),
         });
-
-        const ppData = await ppRes.json();
-        if (ppRes.ok) {
-          setPaypalInfo({
-            ...ppData,
-            bidId,
-            amountUsd: offeredAmountUSD.toFixed(2),
-          });
-          setPaypalSubmitted(true);
-          setIsSubmitting(false);
-          return;
-        } else {
-          throw new Error(ppData.error || 'Error al iniciar checkout con PayPal.');
-        }
+        setPaypalSubmitted(true);
+        setIsSubmitting(false);
+        return;
       }
 
       // 2. Create Mercado Pago / Pix Checkout Preference
@@ -255,41 +241,6 @@ export function ClaimForm({
     }
   };
 
-  const handlePayPalConfirm = async () => {
-    if (!txHashInput) {
-      alert('Por favor ingresa el ID de transacción de PayPal o el correo asociado a tu cuenta de PayPal.');
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      const res = await fetch('/api/bids/demo-confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bidId: paypalInfo?.bidId || searchParams.get('bid_id'),
-          txHash: txHashInput,
-        }),
-      });
-
-      if (res.ok) {
-        setSuccessPayment(true);
-        confetti({
-          particleCount: 120,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      } else {
-        alert('Pago registrado correctamente. El administrador verificará tu comprobante de PayPal y activará tu puesto en minutos.');
-        router.push(`/${activeCategory.slug}`);
-      }
-    } catch {
-      alert('Pago registrado correctamente. El administrador verificará tu comprobante de PayPal y activará tu puesto en minutos.');
-      router.push(`/${activeCategory.slug}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   if (successPayment) {
     return (
@@ -353,52 +304,126 @@ export function ClaimForm({
           )}
 
           {paypalSubmitted ? (
-            <div className="p-6 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-4">
-              <div className="flex items-center gap-2 text-[#003087] font-bold text-sm">
-                <span className="w-6 h-6 rounded-full bg-[#003087] text-white flex items-center justify-center font-black text-xs">
-                  P
-                </span>
-                <span>Pago con PayPal (Internacional / USD)</span>
-              </div>
-              <p className="text-xs text-stone-700">
-                Monto a pagar para reclamar el puesto: <strong>${offeredAmountUSD} USD</strong>
-              </p>
-              {paypalInfo?.paypalEmail && (
-                <div className="p-3 bg-white rounded-xl border border-sky-100 text-xs text-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <span>Cuenta receptora de PayPal:</span>
-                  <span className="font-mono font-bold text-[#003087] select-all">{paypalInfo.paypalEmail}</span>
+            <div className="p-6 rounded-3xl bg-white border border-[#003087]/20 shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-sky-100 pb-3">
+                <div className="flex items-center gap-2.5 text-[#003087] font-bold text-sm">
+                  <span className="w-8 h-8 rounded-full bg-[#003087] text-white flex items-center justify-center font-black text-xs shadow-xs">
+                    P
+                  </span>
+                  <div>
+                    <div className="leading-tight font-extrabold text-[#003087]">Pago Seguro con PayPal</div>
+                    <div className="text-[10px] font-normal text-stone-500">Transacción internacional protegida</div>
+                  </div>
                 </div>
-              )}
-              {paypalInfo?.paypalUrl && (
-                <a
-                  href={paypalInfo.paypalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3 rounded-full bg-[#0070BA] hover:bg-[#003087] text-white font-bold text-xs transition shadow-xs flex items-center justify-center gap-2"
-                >
-                  <span>Abrir PayPal y Completar Pago →</span>
-                </a>
-              )}
-              <div className="space-y-2 pt-2 border-t border-sky-100">
-                <label className="text-xs text-stone-700 font-semibold">
-                  Ingresa aquí el ID de transacción de PayPal o correo del titular:
-                </label>
-                <input
-                  type="text"
-                  placeholder="ej. 9XX1234567890 o tu-email@paypal.com"
-                  value={txHashInput}
-                  onChange={(e) => setTxHashInput(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#EAE6DF] text-stone-900 text-xs focus:border-[#0070BA] focus:outline-none font-mono"
-                />
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                  ⚡ Verificación Automática
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={handlePayPalConfirm}
-                disabled={isSubmitting}
-                className="w-full py-3 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white font-bold text-xs transition shadow-xs disabled:opacity-50"
-              >
-                {isSubmitting ? 'Confirmando...' : 'Confirmar Pago PayPal'}
-              </button>
+
+              <div className="bg-sky-50/70 p-4 rounded-2xl border border-sky-100 space-y-2 text-xs text-stone-700">
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500">Proyecto a postular:</span>
+                  <span className="font-bold text-stone-900 truncate max-w-[200px]">{name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500">Puesto a reclamar:</span>
+                  <span className="font-semibold text-stone-900">Puesto #{targetPos} ({activeCategory.name_es})</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-sky-200/60">
+                  <span className="font-bold text-stone-900">Total a pagar:</span>
+                  <span className="font-black text-lg text-[#003087]">${offeredAmountUSD} USD</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-stone-600 text-center leading-relaxed">
+                Haz clic en el botón oficial de <strong>PayPal</strong> abajo para autorizar el cobro. Se abrirá la pasarela segura y tu puesto se activará automáticamente al finalizar.
+              </p>
+
+              <div className="pt-1">
+                <PayPalScriptProvider
+                  options={{
+                    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'test',
+                    currency: 'USD',
+                    intent: 'capture',
+                  }}
+                >
+                  <PayPalButtons
+                    style={{
+                      layout: 'vertical',
+                      shape: 'rect',
+                      color: 'gold',
+                      label: 'pay',
+                      height: 48,
+                    }}
+                    disabled={isSubmitting}
+                    createOrder={async () => {
+                      setIsSubmitting(true);
+                      setErrorMessage(null);
+                      try {
+                        const res = await fetch('/api/checkout/paypal/create', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ bidId: paypalInfo?.bidId }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok || !data.orderId) {
+                          throw new Error(data.error || 'No se pudo generar la orden de PayPal.');
+                        }
+                        return data.orderId;
+                      } catch (err: any) {
+                        setErrorMessage(err.message || 'Error al conectar con PayPal.');
+                        setIsSubmitting(false);
+                        throw err;
+                      }
+                    }}
+                    onApprove={async (data) => {
+                      try {
+                        setIsSubmitting(true);
+                        const res = await fetch('/api/checkout/paypal/capture', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            orderId: data.orderID,
+                            bidId: paypalInfo?.bidId,
+                          }),
+                        });
+                        const captureData = await res.json();
+                        if (!res.ok) {
+                          throw new Error(captureData.error || 'Error al capturar el pago en PayPal.');
+                        }
+                        setSuccessPayment(true);
+                        confetti({
+                          particleCount: 140,
+                          spread: 80,
+                          origin: { y: 0.6 },
+                        });
+                      } catch (err: any) {
+                        setErrorMessage(err.message || 'Error al acreditar el pago de PayPal.');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                    onCancel={() => {
+                      setIsSubmitting(false);
+                    }}
+                    onError={(err) => {
+                      console.error('PayPal Smart Button error:', err);
+                      setErrorMessage('Hubo un inconveniente con PayPal. Verifica tu conexión o intenta nuevamente.');
+                      setIsSubmitting(false);
+                    }}
+                  />
+                </PayPalScriptProvider>
+              </div>
+
+              <div className="pt-2 text-center border-t border-sky-100">
+                <button
+                  type="button"
+                  onClick={() => setPaypalSubmitted(false)}
+                  className="text-xs text-stone-500 hover:text-stone-900 transition font-medium underline"
+                >
+                  ← Volver al formulario y modificar datos
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
