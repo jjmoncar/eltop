@@ -27,7 +27,7 @@ export async function createPaymentPreference({
   docType = 'CPF',
   docNumber = '',
   backUrl,
-  paymentProvider = 'mercadopago',
+  paymentProvider = 'stripe_pix',
 }: {
   bidId: string;
   title: string;
@@ -49,9 +49,9 @@ export async function createPaymentPreference({
     };
   }
 
-  // Mercado Pago accounts in LATAM process in their country currency (e.g. BRL in Brasil, ARS in Argentina)
-  const targetCurrency: CurrencyCode = (process.env.MERCADOPAGO_CURRENCY as CurrencyCode) || 'BRL';
-  const currencyConfig = CURRENCIES[targetCurrency] || CURRENCIES.BRL;
+  // Pix se procesa exclusivamente en Reales Brasileños (BRL) a través de Mercado Pago
+  const targetCurrency: CurrencyCode = 'BRL';
+  const currencyConfig = CURRENCIES.BRL;
   const rate = currencyConfig.rateAgainstUSD || 5.60;
   const unitPrice = Math.max(0.5, Number((unitPriceUsd * rate).toFixed(2)));
 
@@ -67,7 +67,7 @@ export async function createPaymentPreference({
       {
         id: bidId,
         title: `eltop.lat — ${title}`,
-        description: `Puesto en eltop.lat (${country} - ${docType}: ${docNumber || 'N/A'}) - Eq. $${unitPriceUsd} USD`,
+        description: `Puesto en eltop.lat (Pix Brasil - ${docType}: ${docNumber || 'N/A'}) - Eq. $${unitPriceUsd} USD`,
         quantity: 1,
         unit_price: unitPrice,
         currency_id: targetCurrency,
@@ -80,11 +80,21 @@ export async function createPaymentPreference({
       ...(cleanDoc
         ? {
             identification: {
-              type: docType || (country === 'BR' ? 'CPF' : 'OTHER'),
+              type: docType || 'CPF',
               number: cleanDoc,
             },
           }
         : {}),
+    },
+    // Excluir tarjetas de crédito y débito: Mercado Pago se utiliza únicamente para Pix
+    payment_methods: {
+      default_payment_method_id: 'pix',
+      excluded_payment_types: [
+        { id: 'credit_card' },
+        { id: 'debit_card' },
+        { id: 'prepaid_card' },
+      ],
+      installments: 1,
     },
     external_reference: bidId,
     back_urls: {
@@ -94,11 +104,6 @@ export async function createPaymentPreference({
     },
     notification_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://eltop.lat'}/api/webhooks/mercadopago`,
   };
-
-  // Si el usuario seleccionó Pix en Brasil, priorizar Pix como método por defecto
-  if ((paymentProvider === 'stripe_pix' || paymentProvider === 'pix') && targetCurrency === 'BRL') {
-    body.default_payment_method_id = 'pix';
-  }
 
   // Mercado Pago solo acepta auto_return si la URL de éxito usa HTTPS
   if (body.back_urls.success.startsWith('https://')) {

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       buyerName,
       buyerEmail,
       bidAmountCents,
-      paymentProvider = 'mercadopago',
+      paymentProvider = 'paypal',
       country = 'BR',
       docType = 'CPF',
       docNumber = '',

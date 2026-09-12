@@ -64,7 +64,7 @@ export function Footer({ categories }: FooterProps) {
             <ul className="space-y-2 text-stone-500">
               <li>• Compite por el puesto 1 al 10 en tu categoría.</li>
               <li>• Cada clic hacia tu web es verificado y trazable.</li>
-              <li>• Pagos instantáneos con Mercado Pago, Pix y PayPal.</li>
+              <li>• Pagos instantáneos con Pix y PayPal.</li>
               <li>• Los puestos nunca caducan hasta que alguien te supere.</li>
             </ul>
           </div>
@@ -113,7 +113,7 @@ export function Footer({ categories }: FooterProps) {
           <div className="flex items-center gap-4">
             <Link href="/actividad" className="hover:text-stone-900 transition">Feed de Actividad</Link>
             <a href="https://mercadopago.com" target="_blank" rel="noopener noreferrer" className="hover:text-stone-900 transition">
-              Pagos protegidos por Mercado Pago
+              Pagos Pix vía Mercado Pago
             </a>
           </div>
         </div>

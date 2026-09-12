@@ -11,9 +11,7 @@ import {
   Zap,
   ArrowUpRight,
   ShieldCheck,
-  CreditCard,
   QrCode,
-  Coins,
   CheckCircle2,
   AlertCircle,
   Eye,
@@ -91,7 +89,9 @@ export function ClaimForm({
   };
 
   const [offeredAmountUSD, setOfferedAmountUSD] = useState<number>(20);
-  const [paymentProvider, setPaymentProvider] = useState<'mercadopago' | 'stripe_pix' | 'paypal'>('mercadopago');
+  const [paymentProvider, setPaymentProvider] = useState<'stripe_pix' | 'paypal'>(
+    initialCountryCode === 'BR' || currency === 'BRL' ? 'stripe_pix' : 'paypal'
+  );
 
   // UI States
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -710,54 +710,48 @@ export function ClaimForm({
                 <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-2">
                   6. Método de Pago
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentProvider('mercadopago')}
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
-                      paymentProvider === 'mercadopago'
-                        ? 'bg-[#FDF2EE] border-[#E05A38] text-stone-900 shadow-xs'
-                        : 'bg-white border-[#EAE6DF] text-stone-600 hover:text-stone-950'
-                    }`}
-                  >
-                    <CreditCard className="w-4 h-4 text-sky-600 shrink-0" />
-                    <div>
-                      <div className="text-xs font-bold">Mercado Pago</div>
-                      <div className="text-[10px] text-stone-500">Tarjetas / Saldo MP</div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentProvider('stripe_pix')}
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
-                      paymentProvider === 'stripe_pix'
-                        ? 'bg-[#FDF2EE] border-[#E05A38] text-stone-900 shadow-xs'
-                        : 'bg-white border-[#EAE6DF] text-stone-600 hover:text-stone-950'
-                    }`}
-                  >
-                    <QrCode className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div>
-                      <div className="text-xs font-bold">Pix / Brasil 🇧🇷</div>
-                      <div className="text-[10px] text-stone-500">Instantáneo</div>
-                    </div>
-                  </button>
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setPaymentProvider('paypal')}
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                    className={`p-3.5 rounded-2xl border text-left transition flex items-center gap-3 ${
                       paymentProvider === 'paypal'
-                        ? 'bg-[#FDF2EE] border-[#E05A38] text-stone-900 shadow-xs'
+                        ? 'bg-[#FDF2EE] border-[#E05A38] text-stone-900 shadow-xs ring-1 ring-[#E05A38]'
                         : 'bg-white border-[#EAE6DF] text-stone-600 hover:text-stone-950'
                     }`}
                   >
-                    <div className="w-5 h-5 rounded-full bg-[#003087] text-white flex items-center justify-center font-black text-xs shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-[#003087] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
                       P
                     </div>
                     <div>
-                      <div className="text-xs font-bold">PayPal 🌐</div>
-                      <div className="text-[10px] text-stone-500">Internacional / USD</div>
+                      <div className="text-xs font-bold">PayPal / Tarjetas 🌐</div>
+                      <div className="text-[10px] text-stone-500">Débito, Crédito y Saldo USD</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentProvider('stripe_pix');
+                      if (countryCode !== 'BR') {
+                        handleCountryChange('BR');
+                      }
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left transition flex items-center gap-3 ${
+                      paymentProvider === 'stripe_pix'
+                        ? 'bg-[#FDF2EE] border-[#E05A38] text-stone-900 shadow-xs ring-1 ring-[#E05A38]'
+                        : 'bg-white border-[#EAE6DF] text-stone-600 hover:text-stone-950'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0 shadow-xs">
+                      <QrCode className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        <span>Pix Brasil 🇧🇷</span>
+                        <span className="text-[9px] font-medium bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">Mercado Pago</span>
+                      </div>
+                      <div className="text-[10px] text-stone-500">Instantáneo en R$ (BRL)</div>
                     </div>
                   </button>
                 </div>
@@ -772,15 +766,17 @@ export function ClaimForm({
                 {isSubmitting
                   ? 'Procesando Puja...'
                   : paymentProvider === 'paypal'
-                  ? `Proceder a pagar $${offeredAmountUSD} USD con PayPal →`
-                  : paymentProvider === 'stripe_pix'
-                  ? `Pagar $${offeredAmountUSD} USD con Pix →`
-                  : `Pagar $${offeredAmountUSD} USD con Mercado Pago →`}
+                  ? `Proceder a pagar $${offeredAmountUSD} USD con PayPal / Tarjeta →`
+                  : `Pagar $${offeredAmountUSD} USD con Pix (Mercado Pago) →`}
               </button>
 
               <div className="flex items-center justify-center gap-2 text-[11px] text-stone-500">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>Pago encriptado con redirección segura y factura por email</span>
+                <span>
+                  {paymentProvider === 'stripe_pix'
+                    ? 'Pago seguro con Pix procesado a través de Mercado Pago'
+                    : 'Pago seguro internacional con tarjeta o saldo procesado a través de PayPal'}
+                </span>
               </div>
             </form>
           )}
