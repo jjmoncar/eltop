@@ -335,9 +335,14 @@ export function ClaimForm({
                 </div>
               </div>
 
-              <p className="text-xs text-stone-600 text-center leading-relaxed">
-                Haz clic en el botón oficial de <strong>PayPal</strong> abajo para autorizar el cobro. Se abrirá la pasarela segura y tu puesto se activará automáticamente al finalizar.
-              </p>
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 text-center space-y-1.5">
+                <div className="text-xs font-bold text-stone-900 flex items-center justify-center gap-1.5">
+                  <span>💳 Tarjetas de Débito, Crédito o Cuenta PayPal</span>
+                </div>
+                <p className="text-[11px] text-stone-600 leading-relaxed">
+                  Haz clic en el botón oficial de <strong>PayPal</strong> abajo. Se abrirá la pasarela segura oficial donde podrás pagar directamente con tu <strong>tarjeta de débito o crédito</strong> (sin necesidad de tener cuenta de PayPal) o con tu saldo.
+                </p>
+              </div>
 
               <div className="pt-1">
                 <PayPalScriptProvider
@@ -345,6 +350,7 @@ export function ClaimForm({
                     clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'test',
                     currency: 'USD',
                     intent: 'capture',
+                    'disable-funding': 'card,paylater,venmo',
                   }}
                 >
                   <PayPalButtons
