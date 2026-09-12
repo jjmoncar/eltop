@@ -320,6 +320,13 @@ export function ClaimForm({
                 </span>
               </div>
 
+              {errorMessage && (
+                <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
               <div className="bg-sky-50/70 p-4 rounded-2xl border border-sky-100 space-y-2 text-xs text-stone-700">
                 <div className="flex justify-between items-center">
                   <span className="text-stone-500">Proyecto a postular:</span>

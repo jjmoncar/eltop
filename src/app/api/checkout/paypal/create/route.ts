@@ -48,12 +48,15 @@ export async function POST(req: NextRequest) {
     const config = getPayPalConfig();
 
     if (!config.isConfigured) {
-      // Fallback para modo desarrollo sin credenciales configuradas
-      console.warn('PayPal no tiene credenciales configuradas en .env. Generando ID simulado.');
-      return NextResponse.json({
-        orderId: `MOCK_ORDER_${Date.now()}`,
-        amountUsd,
-      });
+      console.error('[PAYPAL ERROR] Credenciales no configuradas (NEXT_PUBLIC_PAYPAL_CLIENT_ID o PAYPAL_CLIENT_SECRET ausentes).');
+      return NextResponse.json(
+        {
+          error:
+            'Las credenciales de PayPal (NEXT_PUBLIC_PAYPAL_CLIENT_ID y PAYPAL_CLIENT_SECRET) no están configuradas en las variables de entorno de tu servidor/hosting (ej. Vercel). Agrégalas para procesar pagos.',
+          notConfigured: true,
+        },
+        { status: 400 }
+      );
     }
 
     const order = await createPayPalOrder({
