@@ -361,13 +361,10 @@ export default function HomePage() {
                 Mecánica de Subasta
               </h3>
               <p className="text-xs text-stone-600 leading-relaxed">
-                1. <strong>Supera al puesto:</strong> Para subir al puesto #1 o a cualquier otro lugar, paga la puja actual + el incremento ($5 USD).
+                1. <strong>Supera al puesto:</strong> Para subir al puesto #1 o a cualquier otro lugar, paga la puja actual + el incremento ($1 USD).
               </p>
               <p className="text-xs text-stone-600 leading-relaxed">
                 2. <strong>Tráfico garantizado:</strong> Recibes un enlace exclusivo <code>/l/[id]</code> que redirige directamente a tu web contando cada clic.
-              </p>
-              <p className="text-xs text-stone-600 leading-relaxed">
-                3. <strong>Alertas de Outbid:</strong> Si alguien te supera, te avisamos por correo al instante.
               </p>
             </div>
           </div>
