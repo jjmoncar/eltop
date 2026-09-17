@@ -12,15 +12,12 @@ function detectLocale(request: NextRequest): Locale {
   return 'es';
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const firstSegment = pathname.split('/')[1];
 
   if (locales.includes(firstSegment as Locale)) {
-    const pathnameWithoutLocale = pathname.replace(/^\/(es|en|pt-br)(?=\/|$)/, '') || '/';
-    const rewriteUrl = request.nextUrl.clone();
-    rewriteUrl.pathname = pathnameWithoutLocale;
-    return NextResponse.rewrite(rewriteUrl);
+    return NextResponse.next();
   }
 
   const locale = detectLocale(request);

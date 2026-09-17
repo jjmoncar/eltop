@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
@@ -11,7 +12,9 @@ import Link from 'next/link';
 
 export default function CategoryPage() {
   const params = useParams();
+  const pathname = usePathname();
   const categorySlug = params.category as string;
+  const locale = pathname.split('/')[1] || 'es';
 
   const [currency, setCurrency] = useState<CurrencyCode>('USD');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -63,7 +66,7 @@ export default function CategoryPage() {
           </div>
 
           <Link
-            href={`/${categorySlug}/reclamar`}
+            href={`/${locale}/${categorySlug}/reclamar`}
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition transform active:scale-95 shrink-0"
           >
             <Plus className="w-4 h-4" />

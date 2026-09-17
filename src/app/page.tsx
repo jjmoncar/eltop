@@ -8,6 +8,7 @@ import { LiveActivityFeed } from '@/components/LiveActivityFeed';
 import { Category, Listing, CurrencyCode } from '@/types/database';
 import { formatUSDOnly } from '@/lib/currencies';
 import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   Trophy,
   Sparkles,
@@ -29,6 +30,8 @@ import Link from 'next/link';
 
 export default function HomePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = pathname.split('/')[1] || 'es';
   const [currency, setCurrency] = useState<CurrencyCode>('USD');
   const [categories, setCategories] = useState<Category[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -97,7 +100,7 @@ export default function HomePage() {
     const targetCat = quickCategory || categories[0]?.slug || 'saas';
     const params = new URLSearchParams();
     if (quickUrl) params.set('url', quickUrl);
-    router.push(`/${targetCat}/reclamar?${params.toString()}`);
+    router.push(`/${locale}/${targetCat}/reclamar?${params.toString()}`);
   };
 
   return (

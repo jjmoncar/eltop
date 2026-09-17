@@ -7,9 +7,11 @@ import { LiveActivityFeed } from '@/components/LiveActivityFeed';
 import { CurrencyCode } from '@/types/database';
 import { Activity, Flame, Users, Eye, MousePointerClick, Award } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useLiveStats } from '@/hooks/useLiveStats';
 
 export default function ActividadPage() {
+  const locale = usePathname().split('/')[1] || 'es';
   const [currency, setCurrency] = useState<CurrencyCode>('USD');
   const stats = useLiveStats();
 
@@ -93,7 +95,7 @@ export default function ActividadPage() {
           </p>
           <div>
             <Link
-              href="/saas/reclamar"
+              href={`/${locale}/saas/reclamar`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition"
             >
               <Flame className="w-4 h-4 fill-white" />
