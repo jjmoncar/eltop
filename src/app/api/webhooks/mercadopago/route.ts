@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { supabaseAdmin, mockBids, mockListings, mockCategories, isSupabaseConfigured } from '@/lib/supabase/admin';
+import { supabaseAdmin, mockBids, mockLeaderboardEntries, mockCategories, isSupabaseConfigured } from '@/lib/supabase/admin';
 import { getPaymentDetails } from '@/lib/mercadopago';
-import { recalculateCategoryRankings } from '@/lib/auction';
 import { sendBidConfirmationEmail } from '@/lib/resend';
-import { Bid, Listing } from '@/types/database';
+import { Bid } from '@/types/database';
 
 function verifyMercadoPagoSignature(req: NextRequest, dataId?: string | null): boolean {
   const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
@@ -127,74 +126,52 @@ export async function processSuccessfulBid(bidId: string, paymentId: string, pay
       })
       .eq('id', bidId);
 
-    // 2. Check if a listing with the same target_url or buyer email exists in this category, or create new
-    const { data: existingListing } = await supabaseAdmin
-      .from('listings')
-      .select('*')
+    // 2. Create or reuse the freemium entry, then place the paid bid atomically.
+    const { data: existingEntry } = await supabaseAdmin
+      .from('leaderboard_entries')
+      .select('id, logo_url')
       .eq('category_id', targetBid.category_id)
-      .eq('url', targetBid.target_url)
-      .single();
+      .eq('link_url', targetBid.target_url)
+      .maybeSingle();
 
-    let listingId = existingListing?.id;
+    const { data: entry, error: entryError } = existingEntry
+      ? { data: existingEntry, error: null }
+      : await supabaseAdmin
+          .from('leaderboard_entries')
+          .insert({
+            category_id: targetBid.category_id,
+            display_name: targetBid.target_name,
+            tagline: targetBid.tagline,
+            link_url: targetBid.target_url,
+            logo_url: targetBid.logo_url,
+            is_approved: true,
+          })
+          .select('id, logo_url')
+          .single();
 
-    if (existingListing) {
-      // Update existing listing
-      await supabaseAdmin
-        .from('listings')
-        .update({
-          name: targetBid.target_name,
-          tagline: targetBid.tagline,
-          logo_url: targetBid.logo_url || existingListing.logo_url,
-          current_bid_cents: targetBid.bid_amount_cents,
-          email: targetBid.buyer_email,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingListing.id);
-    } else {
-      // Create new listing
-      const { data: newListing } = await supabaseAdmin
-        .from('listings')
-        .insert({
-          category_id: targetBid.category_id,
-          rank_type: 'all_time',
-          position: 999, // Will be updated immediately below
-          name: targetBid.target_name,
-          tagline: targetBid.tagline,
-          url: targetBid.target_url,
-          logo_url: targetBid.logo_url,
-          email: targetBid.buyer_email,
-          current_bid_cents: targetBid.bid_amount_cents,
-          click_count: 0,
-          is_approved: true,
-        })
-        .select()
-        .single();
+    if (entryError || !entry) throw entryError || new Error('Could not create leaderboard entry');
 
-      if (newListing) {
-        listingId = newListing.id;
-        await supabaseAdmin
-          .from('bids')
-          .update({ listing_id: listingId })
-          .eq('id', targetBid.id);
-      }
+    const targetPosition = Math.min(Math.max(targetBid.target_position || 1, 1), 20);
+    const { data: placement, error: placementError } = await supabaseAdmin.rpc('place_bid', {
+      p_entry_id: entry.id,
+      p_category_id: targetBid.category_id,
+      p_position: targetPosition,
+      p_amount: targetBid.bid_amount_cents / 100,
+      p_bidder_id: null,
+    });
+
+    if (placementError || !placement?.success) {
+      throw placementError || new Error(`Bid no longer meets the required price of $${placement?.required_price || 'unknown'} USD.`);
     }
 
-    // 3. Recalculate rankings atomically
-    await recalculateCategoryRankings(targetBid.category_id);
-
-    // 4. Fetch updated position for email
-    const { data: finalListing } = await supabaseAdmin
-      .from('listings')
-      .select('position')
-      .eq('id', listingId)
-      .single();
+    await supabaseAdmin.from('bids').update({ entry_id: entry.id }).eq('id', targetBid.id);
 
     // 5. Send confirmation email
     await sendBidConfirmationEmail({
       to: targetBid.buyer_email,
       buyerName: targetBid.buyer_name,
       listingName: targetBid.target_name,
-      position: finalListing?.position || 1,
+      position: targetPosition,
       amountPaidUsd: targetBid.bid_amount_cents / 100,
       categoryName: (targetBid.category as any)?.name_es || 'General',
     });
@@ -206,50 +183,57 @@ export async function processSuccessfulBid(bidId: string, paymentId: string, pay
     targetBid.payment_status = 'paid';
     targetBid.payment_id = paymentId;
 
-    const existingIndex = mockListings.findIndex(
-      (l) => l.category_id === targetBid!.category_id && l.url === targetBid!.target_url
+    let entry = mockLeaderboardEntries.find(
+      (item) => item.category_id === targetBid!.category_id && item.link_url === targetBid!.target_url
     );
-
-    let listingId = '';
-    if (existingIndex >= 0) {
-      mockListings[existingIndex].name = targetBid.target_name;
-      mockListings[existingIndex].tagline = targetBid.tagline;
-      mockListings[existingIndex].current_bid_cents = targetBid.bid_amount_cents;
-      mockListings[existingIndex].logo_url = targetBid.logo_url || mockListings[existingIndex].logo_url;
-      mockListings[existingIndex].updated_at = new Date().toISOString();
-      listingId = mockListings[existingIndex].id;
-    } else {
-      listingId = `list_${Date.now()}`;
-      const newListing: Listing = {
-        id: listingId,
+    if (!entry) {
+      entry = {
+        id: `entry_${Date.now()}`,
         category_id: targetBid.category_id,
-        rank_type: 'all_time',
-        position: 999,
-        name: targetBid.target_name,
+        display_name: targetBid.target_name,
         tagline: targetBid.tagline,
-        url: targetBid.target_url,
-        logo_url: targetBid.logo_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&h=100&fit=crop&crop=faces',
-        email: targetBid.buyer_email,
-        current_bid_cents: targetBid.bid_amount_cents,
-        click_count: 0,
+        link_url: targetBid.target_url,
+        logo_url: targetBid.logo_url,
+        position: null,
+        current_price: null,
+        is_paid: false,
         is_approved: true,
+        registered_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       };
-      mockListings.push(newListing);
+      mockLeaderboardEntries.push(entry);
     }
 
-    targetBid.listing_id = listingId;
-    await recalculateCategoryRankings(targetBid.category_id);
+    const targetPosition = Math.min(Math.max(targetBid.target_position || 1, 1), 20);
+    const entriesInCategory = mockLeaderboardEntries.filter((item) => item.category_id === targetBid!.category_id);
+    const priceAt = (position: number): number => {
+      const occupied = entriesInCategory.find((item) => item.position === position && item.current_price);
+      if (occupied?.current_price) return Number((occupied.current_price * 1.2).toFixed(2));
+      if (position === 1) return 5;
+      return Number((priceAt(position - 1) * 1.2).toFixed(2));
+    };
+    const requiredPrice = priceAt(targetPosition);
+    if (targetBid.bid_amount_cents / 100 < requiredPrice) {
+      throw new Error(`Bid no longer meets the required price of $${requiredPrice.toFixed(2)} USD.`);
+    }
+    const displaced = entriesInCategory.find((item) => item.position === targetPosition);
+    if (displaced && displaced.id !== entry.id) {
+      displaced.position = null;
+      displaced.current_price = null;
+      displaced.is_paid = false;
+    }
+    entry.position = targetPosition;
+    entry.current_price = targetBid.bid_amount_cents / 100;
+    entry.is_paid = true;
+    entry.last_bid_at = new Date().toISOString();
+    targetBid.entry_id = entry.id;
 
     const cat = mockCategories.find((c) => c.id === targetBid!.category_id);
-    const finalItem = mockListings.find((l) => l.id === listingId);
-
     await sendBidConfirmationEmail({
       to: targetBid.buyer_email,
       buyerName: targetBid.buyer_name,
       listingName: targetBid.target_name,
-      position: finalItem?.position || 1,
+      position: targetPosition,
       amountPaidUsd: targetBid.bid_amount_cents / 100,
       categoryName: cat?.name_es || 'General',
     });

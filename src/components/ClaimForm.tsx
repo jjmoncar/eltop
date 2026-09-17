@@ -108,15 +108,19 @@ export function ClaimForm({
   const catListings = listings.filter((l) => l.category_id === activeCategory.id && l.rank_type === 'all_time');
   const occupant = catListings.find((l) => l.position === targetPos);
 
-  const minFloor = (activeCategory.min_floor_cents || 2000) / 100;
-  const minIncrement = (activeCategory.min_bid_increment_cents || 500) / 100;
+  const paidPrices = new Map(
+    catListings
+      .filter((listing) => listing.position !== null && listing.position >= 1 && listing.position <= 20)
+      .map((listing) => [listing.position as number, listing.current_bid_cents])
+  );
+  const challengePrice = (position: number): number => {
+    const currentPrice = paidPrices.get(position);
+    if (currentPrice && currentPrice > 0) return currentPrice / 100 * 1.2;
+    if (position === 1) return 5;
+    return challengePrice(position - 1) * 1.2;
+  };
 
-  // Calculate required minimum USD
-  const requiredMinimumUSD = occupant
-    ? occupant.current_bid_cents / 100 + minIncrement
-    : catListings.length === 0
-    ? minFloor
-    : Math.max(minFloor, (catListings[catListings.length - 1].current_bid_cents / 100) * 0.5);
+  const requiredMinimumUSD = challengePrice(targetPos);
 
   useEffect(() => {
     // Fill from query param if available
@@ -182,6 +186,7 @@ export function ClaimForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: activeCategory.id,
+          targetPosition: targetPos,
           name,
           tagline,
           url,

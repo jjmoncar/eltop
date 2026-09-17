@@ -67,10 +67,9 @@ export default function HomePage() {
 
   // Highest top #1 price or default floor from categories
   const topListing = listings.find((l) => l.position === 1);
-  const minFloorUSD = categories[0]?.min_floor_cents ? categories[0].min_floor_cents / 100 : 20;
-  const minIncrementUSD = categories[0]?.min_bid_increment_cents ? categories[0].min_bid_increment_cents / 100 : 5;
+  const minFloorUSD = 5;
   const top1ClaimPrice = topListing
-    ? Math.round(topListing.current_bid_cents / 100 + minIncrementUSD)
+    ? Math.round((topListing.current_bid_cents / 100) * 1.2 * 100) / 100
     : minFloorUSD;
 
   const filteredCategories =
@@ -90,7 +89,7 @@ export default function HomePage() {
   // Top 3 featured listings (only actual listings saved in database)
   const topListings = filteredListings
     .filter((l) => l.is_approved)
-    .sort((a, b) => a.position - b.position)
+    .sort((a, b) => (a.position ?? Number.MAX_SAFE_INTEGER) - (b.position ?? Number.MAX_SAFE_INTEGER))
     .slice(0, 3);
 
   const handleQuickClaim = (e: React.FormEvent) => {

@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { Category, Listing, Bid, AdminUser } from '@/types/database';
+import { Category, Listing, Bid, AdminUser, LeaderboardEntry } from '@/types/database';
 
 export function sanitizeSupabaseUrl(url?: string): string {
   if (!url) return '';
@@ -82,6 +82,7 @@ export const mockCategories: Category[] = [
 ];
 
 export const mockListings: Listing[] = [];
+export const mockLeaderboardEntries: LeaderboardEntry[] = [];
 export const mockBids: Bid[] = [];
 export const mockAdminUsers: (AdminUser & { password_hash: string })[] = [
   {

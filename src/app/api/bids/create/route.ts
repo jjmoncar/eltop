@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       categoryId,
+      targetPosition = 1,
       name,
       tagline,
       url,
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
         .from('bids')
         .insert({
           category_id: categoryId,
+          target_position: Number(targetPosition),
           bid_amount_cents: offeredCents,
           buyer_name: cleanBuyerName,
           buyer_email: buyerEmail.trim().toLowerCase(),
@@ -107,7 +109,9 @@ export async function POST(req: NextRequest) {
       // Local mock storage
       const mockBid: Bid = {
         id: createdBidId,
+        entry_id: null,
         category_id: categoryId,
+        target_position: Number(targetPosition),
         bid_amount_cents: offeredCents,
         buyer_name: cleanBuyerName,
         buyer_email: buyerEmail.trim().toLowerCase(),

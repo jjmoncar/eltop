@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
+import { AdBanner } from '@/components/AdBanner';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -23,6 +25,13 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'eltop.lat Team' }],
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://eltop.lat'),
+  alternates: {
+    languages: {
+      es: '/es',
+      en: '/en',
+      'pt-BR': '/pt-br',
+    },
+  },
   openGraph: {
     title: 'eltop.lat — El Leaderboard de Subasta para LATAM',
     description:
@@ -49,6 +58,18 @@ export default function RootLayout({
     <html lang="es" className={`${inter.variable} antialiased`}>
       <body className="min-h-screen bg-[#FAF8F5] text-stone-900 selection:bg-[#E05A38]/20 selection:text-[#CD4C29]">
         {children}
+        <AdBanner slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT || ''} />
+        {process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}`}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
+        {process.env.NEXT_PUBLIC_MONETAG_SCRIPT_URL && (
+          <Script src={process.env.NEXT_PUBLIC_MONETAG_SCRIPT_URL} strategy="afterInteractive" />
+        )}
       </body>
     </html>
   );

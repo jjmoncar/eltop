@@ -13,9 +13,8 @@ interface Props {
 }
 
 export function LeaderboardTable({ category, listings, currency }: Props) {
-  const sortedListings = [...listings].sort((a, b) => a.position - b.position);
-  const minFloorUSD = (category.min_floor_cents || 2000) / 100;
-  const minIncrementUSD = (category.min_bid_increment_cents || 500) / 100;
+  const sortedListings = [...listings].sort((a, b) => (a.position ?? Number.MAX_SAFE_INTEGER) - (b.position ?? Number.MAX_SAFE_INTEGER));
+  const minFloorUSD = 5;
 
   return (
     <div className="w-full space-y-4">
@@ -38,7 +37,7 @@ export function LeaderboardTable({ category, listings, currency }: Props) {
           <div className="text-right hidden sm:block">
             <div className="text-[11px] text-stone-400 font-medium">Piso / Incremento</div>
             <div className="text-xs font-semibold text-stone-700">
-              ${minFloorUSD} / +${minIncrementUSD} USD
+              $${minFloorUSD} / +20% USD
             </div>
           </div>
           <Link
@@ -77,7 +76,11 @@ export function LeaderboardTable({ category, listings, currency }: Props) {
             const isFirst = listing.position === 1;
             const isSecond = listing.position === 2;
             const isThird = listing.position === 3;
-            const nextPriceCents = listing.current_bid_cents + (category.min_bid_increment_cents || 500);
+            const nextPriceCents = listing.is_paid
+              ? Math.round(listing.current_bid_cents * 1.2)
+              : listing.position === 1
+              ? 500
+              : Math.round(listing.current_bid_cents * 1.2) || 500;
 
             return (
               <div

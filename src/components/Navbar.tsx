@@ -7,6 +7,7 @@ import { CurrencySelector } from './CurrencySelector';
 import { CurrencyCode, Category } from '@/types/database';
 import { Trophy, Activity, Plus, Search, Sparkles } from 'lucide-react';
 import { useLiveStats } from '@/hooks/useLiveStats';
+import { getLocaleFromPath, localeLabels, localizedHref, locales, Locale } from '@/lib/i18n';
 
 interface Props {
   currency: CurrencyCode;
@@ -16,6 +17,7 @@ interface Props {
 
 export function Navbar({ currency, onCurrencyChange, categories }: Props) {
   const pathname = usePathname();
+  const locale = getLocaleFromPath(pathname);
   const [liveCategories, setLiveCategories] = React.useState<Category[]>(categories || []);
   const stats = useLiveStats();
 
@@ -35,8 +37,8 @@ export function Navbar({ currency, onCurrencyChange, categories }: Props) {
   }, [categories]);
 
   const navLinks = [
-    { href: '/', label: 'Explorar' },
-    { href: '/actividad', label: 'Actividad' },
+    { href: `/${locale}`, label: 'Explorar' },
+    { href: `/${locale}/actividad`, label: 'Actividad' },
   ];
 
   const primaryClaimSlug = liveCategories[0]?.slug || 'saas';
@@ -46,7 +48,7 @@ export function Navbar({ currency, onCurrencyChange, categories }: Props) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Left: Brand Logo & Live Stats */}
         <div className="flex items-center gap-4 sm:gap-6">
-          <Link href="/" className="flex items-center gap-2 group shrink-0">
+          <Link href={`/${locale}`} className="flex items-center gap-2 group shrink-0">
             {/* Logo Mark with outbid-inspired warm style */}
             <div className="flex flex-col gap-[3px] justify-center items-start w-5">
               <span className="w-5 h-[3.5px] bg-[#E05A38] rounded-full" />
@@ -72,7 +74,7 @@ export function Navbar({ currency, onCurrencyChange, categories }: Props) {
               {stats.visits.toLocaleString()} {stats.visits === 1 ? 'visita' : 'visitas'}
             </span>
             <span className="text-stone-300">·</span>
-            <Link href="/actividad" className="text-stone-700 hover:text-[#E05A38] font-medium flex items-center gap-0.5 transition">
+            <Link href={`/${locale}/actividad`} className="text-stone-700 hover:text-[#E05A38] font-medium flex items-center gap-0.5 transition">
               stats →
             </Link>
           </div>
@@ -103,8 +105,20 @@ export function Navbar({ currency, onCurrencyChange, categories }: Props) {
             onCurrencyChange={onCurrencyChange}
           />
 
+          <div className="hidden sm:flex items-center rounded-full border border-[#EAE6DF] bg-white p-1" aria-label="Idioma">
+            {locales.map((option) => (
+              <Link
+                key={option}
+                href={localizedHref(pathname, option)}
+                className={`rounded-full px-2 py-1 text-[10px] font-bold ${option === locale ? 'bg-stone-900 text-white' : 'text-stone-500 hover:text-stone-900'}`}
+              >
+                {localeLabels[option as Locale]}
+              </Link>
+            ))}
+          </div>
+
           <Link
-            href={`/${primaryClaimSlug}/reclamar`}
+            href={`/${locale}/${primaryClaimSlug}/reclamar`}
             className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#E05A38] hover:bg-[#CD4C29] text-white text-xs font-bold shadow-sm shadow-[#E05A38]/25 hover:scale-[1.02] active:scale-[0.98] transition transform"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />

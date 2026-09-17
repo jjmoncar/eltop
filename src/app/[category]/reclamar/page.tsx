@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { ClaimForm } from '@/components/ClaimForm';
+import { FreeRegistrationForm } from '@/components/FreeRegistrationForm';
 import { Category, Listing, CurrencyCode } from '@/types/database';
 
 function ReclamarContent() {
@@ -48,13 +49,16 @@ function ReclamarContent() {
             Cargando subasta...
           </div>
         ) : (
-          <ClaimForm
-            categories={categories}
-            currentCategory={currentCategory}
-            listings={listings}
-            targetPosParam={targetPosParam}
-            currency={currency}
-          />
+          <div className="space-y-8">
+            <FreeRegistrationForm categories={categories} currentCategory={currentCategory} />
+            <ClaimForm
+              categories={categories}
+              currentCategory={currentCategory}
+              listings={listings}
+              targetPosParam={targetPosParam}
+              currency={currency}
+            />
+          </div>
         )}
       </main>
 

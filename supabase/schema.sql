@@ -22,6 +22,204 @@ CREATE TABLE IF NOT EXISTS public.categories (
 );
 
 -- ------------------------------------------------------------------------------
+-- Freemium ranking tables
+-- ------------------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS public.leaderboard_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id),
+    category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
+    display_name TEXT NOT NULL,
+    link_url TEXT,
+    tagline TEXT,
+    logo_url TEXT,
+    position INTEGER,
+    current_price NUMERIC(10,2),
+    is_paid BOOLEAN NOT NULL DEFAULT false,
+    is_approved BOOLEAN NOT NULL DEFAULT true,
+    registered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_bid_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.bid_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entry_id UUID NOT NULL REFERENCES public.leaderboard_entries(id) ON DELETE CASCADE,
+    category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position BETWEEN 1 AND 20),
+    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    bidder_user_id UUID REFERENCES auth.users(id),
+    previous_bid_amount NUMERIC(10,2),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_entries_category_position
+    ON public.leaderboard_entries(category_id, position);
+CREATE INDEX IF NOT EXISTS idx_entries_category_registered
+    ON public.leaderboard_entries(category_id, registered_at);
+CREATE INDEX IF NOT EXISTS idx_bid_history_entry_created
+    ON public.bid_history(entry_id, created_at DESC);
+
+ALTER TABLE public.leaderboard_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bid_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Approved freemium entries are viewable by everyone" ON public.leaderboard_entries;
+CREATE POLICY "Approved freemium entries are viewable by everyone"
+    ON public.leaderboard_entries FOR SELECT USING (is_approved = true);
+
+DROP POLICY IF EXISTS "Bid history is private" ON public.bid_history;
+CREATE POLICY "Bid history is private" ON public.bid_history FOR SELECT USING (false);
+
+-- ------------------------------------------------------------------------------
+-- Freemium pricing and atomic placement
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_challenge_price(
+    p_category_id UUID,
+    p_position INTEGER
+)
+RETURNS NUMERIC AS $$
+DECLARE
+    v_current_price NUMERIC;
+    v_previous_price NUMERIC;
+BEGIN
+    IF p_position < 1 OR p_position > 20 THEN
+        RAISE EXCEPTION 'Position must be between 1 and 20';
+    END IF;
+
+    SELECT current_price INTO v_current_price
+    FROM public.leaderboard_entries
+    WHERE category_id = p_category_id AND position = p_position;
+
+    IF v_current_price IS NOT NULL THEN
+        RETURN round(v_current_price * 1.20, 2);
+    END IF;
+
+    IF p_position = 1 THEN
+        RETURN 5.00;
+    END IF;
+
+    SELECT current_price INTO v_previous_price
+    FROM public.leaderboard_entries
+    WHERE category_id = p_category_id AND position = p_position - 1;
+
+    IF v_previous_price IS NULL THEN
+        RETURN round(public.get_challenge_price(p_category_id, p_position - 1) * 1.20, 2);
+    END IF;
+
+    RETURN round(v_previous_price * 1.20, 2);
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION public.place_bid(
+    p_entry_id UUID,
+    p_category_id UUID,
+    p_position INTEGER,
+    p_amount NUMERIC,
+    p_bidder_id UUID DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_required_price NUMERIC;
+    v_previous_price NUMERIC;
+    v_target_entry_id UUID;
+    v_entry_category_id UUID;
+BEGIN
+    IF p_position < 1 OR p_position > 20 OR p_amount <= 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Invalid position or amount');
+    END IF;
+
+    -- Advisory lock closes the gap when the target position is currently empty.
+    PERFORM pg_advisory_xact_lock(hashtextextended(p_category_id::TEXT || ':' || p_position::TEXT, 0));
+
+    SELECT id, current_price INTO v_target_entry_id, v_previous_price
+    FROM public.leaderboard_entries
+    WHERE category_id = p_category_id AND position = p_position
+    FOR UPDATE;
+
+    SELECT category_id INTO v_entry_category_id
+    FROM public.leaderboard_entries
+    WHERE id = p_entry_id
+    FOR UPDATE;
+
+    IF v_entry_category_id IS NULL OR v_entry_category_id <> p_category_id THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Entry not found');
+    END IF;
+
+    v_required_price := public.get_challenge_price(p_category_id, p_position);
+    IF p_amount < v_required_price THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'required_price', v_required_price
+        );
+    END IF;
+
+    UPDATE public.leaderboard_entries
+    SET position = NULL,
+        current_price = NULL,
+        is_paid = false,
+        last_bid_at = NULL
+    WHERE category_id = p_category_id AND position = p_position;
+
+    UPDATE public.leaderboard_entries
+    SET position = p_position,
+        current_price = round(p_amount, 2),
+        is_paid = true,
+        last_bid_at = now()
+    WHERE id = p_entry_id;
+
+    INSERT INTO public.bid_history (
+        entry_id, category_id, position, amount, bidder_user_id, previous_bid_amount
+    ) VALUES (
+        p_entry_id, p_category_id, p_position, round(p_amount, 2), p_bidder_id,
+        CASE WHEN v_previous_price IS NULL THEN v_required_price / 1.20 ELSE v_previous_price END
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'required_price', v_required_price,
+        'displaced_entry_id', v_target_entry_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.register_free_entry(
+    p_category_id UUID,
+    p_display_name TEXT,
+    p_link_url TEXT DEFAULT NULL,
+    p_tagline TEXT DEFAULT NULL,
+    p_logo_url TEXT DEFAULT NULL,
+    p_user_id UUID DEFAULT NULL
+)
+RETURNS public.leaderboard_entries AS $$
+DECLARE
+    v_position INTEGER;
+    v_entry public.leaderboard_entries;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtextextended(p_category_id::TEXT || ':free-entry', 0));
+
+    SELECT slot.position INTO v_position
+    FROM generate_series(1, 20) AS slot(position)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.leaderboard_entries entry
+        WHERE entry.category_id = p_category_id AND entry.position = slot.position
+    )
+    ORDER BY slot.position
+    LIMIT 1;
+
+    INSERT INTO public.leaderboard_entries (
+        user_id, category_id, display_name, link_url, tagline, logo_url, position, is_paid
+    ) VALUES (
+        p_user_id, p_category_id, trim(p_display_name), NULLIF(trim(p_link_url), ''),
+        NULLIF(trim(p_tagline), ''), NULLIF(trim(p_logo_url), ''), v_position, false
+    )
+    RETURNING * INTO v_entry;
+
+    RETURN v_entry;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ------------------------------------------------------------------------------
 -- 2. Table: listings (Current Rank Holders)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.listings (
@@ -48,7 +246,9 @@ CREATE TABLE IF NOT EXISTS public.listings (
 CREATE TABLE IF NOT EXISTS public.bids (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     listing_id UUID REFERENCES public.listings(id) ON DELETE SET NULL,
+    entry_id UUID REFERENCES public.leaderboard_entries(id) ON DELETE SET NULL,
     category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
+    target_position INTEGER CHECK (target_position BETWEEN 1 AND 20),
     bid_amount_cents INTEGER NOT NULL,
     buyer_name TEXT NOT NULL,
     buyer_email TEXT NOT NULL,
@@ -62,6 +262,9 @@ CREATE TABLE IF NOT EXISTS public.bids (
     raw_payment_data JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS entry_id UUID REFERENCES public.leaderboard_entries(id) ON DELETE SET NULL;
+ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS target_position INTEGER CHECK (target_position BETWEEN 1 AND 20);
 
 -- ------------------------------------------------------------------------------
 -- 4. Table: click_events (Redirect Tracking)
@@ -117,10 +320,12 @@ ALTER TABLE public.click_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
 -- Categories: Read public, write admin/service-role
+DROP POLICY IF EXISTS "Categories are viewable by everyone" ON public.categories;
 CREATE POLICY "Categories are viewable by everyone" ON public.categories
     FOR SELECT USING (true);
 
 -- Listings: Read public (approved), write admin/service-role
+DROP POLICY IF EXISTS "Approved listings are viewable by everyone" ON public.listings;
 CREATE POLICY "Approved listings are viewable by everyone" ON public.listings
     FOR SELECT USING (is_approved = true);
 
@@ -139,6 +344,7 @@ CREATE VIEW public.public_bids WITH (security_invoker = false) AS
 GRANT SELECT ON public.public_bids TO anon, authenticated;
 
 -- Click events: Insertable via RPC/service-role
+DROP POLICY IF EXISTS "Click events are insertable by anyone" ON public.click_events;
 CREATE POLICY "Click events are insertable by anyone" ON public.click_events
     FOR INSERT WITH CHECK (true);
 
