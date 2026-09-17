@@ -21,6 +21,14 @@ CREATE TABLE IF NOT EXISTS public.categories (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS public.listing_urls (
+    normalized_url TEXT PRIMARY KEY,
+    original_url TEXT NOT NULL,
+    entry_id UUID,
+    listing_id UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ------------------------------------------------------------------------------
 -- Freemium ranking tables
 -- ------------------------------------------------------------------------------
@@ -111,6 +119,80 @@ BEGIN
     RETURN round(v_previous_price * 1.20, 2);
 END;
 $$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION public.normalize_listing_url(p_url TEXT)
+RETURNS TEXT AS $$
+DECLARE
+    v_url TEXT;
+BEGIN
+    v_url := lower(trim(p_url));
+    IF v_url !~ '^https?://' THEN
+        v_url := 'https://' || v_url;
+    ELSE
+        v_url := regexp_replace(v_url, '^https?://', 'https://');
+    END IF;
+    v_url := regexp_replace(v_url, '^https://www\\.', 'https://');
+    v_url := regexp_replace(v_url, '/+$', '');
+    IF v_url = 'https://' THEN
+        RETURN '';
+    END IF;
+    RETURN v_url;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.claim_listing_url(
+    p_url TEXT,
+    p_entry_id UUID DEFAULT NULL,
+    p_listing_id UUID DEFAULT NULL
+)
+RETURNS TEXT AS $$
+DECLARE
+    v_normalized_url TEXT;
+    v_existing public.listing_urls;
+BEGIN
+    v_normalized_url := public.normalize_listing_url(p_url);
+    IF v_normalized_url = '' THEN
+        RAISE EXCEPTION 'Invalid listing URL';
+    END IF;
+
+    PERFORM pg_advisory_xact_lock(hashtextextended(v_normalized_url, 0));
+    SELECT * INTO v_existing FROM public.listing_urls WHERE normalized_url = v_normalized_url FOR UPDATE;
+
+    IF v_existing.normalized_url IS NOT NULL
+       AND v_existing.entry_id IS NULL AND v_existing.listing_id IS NULL THEN
+        NULL;
+    ELSIF v_existing.normalized_url IS NOT NULL
+       AND (p_entry_id IS NULL OR v_existing.entry_id IS DISTINCT FROM p_entry_id)
+       AND (p_listing_id IS NULL OR v_existing.listing_id IS DISTINCT FROM p_listing_id) THEN
+        RAISE EXCEPTION 'LISTING_URL_ALREADY_EXISTS';
+    END IF;
+
+    INSERT INTO public.listing_urls (normalized_url, original_url, entry_id, listing_id)
+    VALUES (v_normalized_url, trim(p_url), p_entry_id, p_listing_id)
+    ON CONFLICT (normalized_url) DO UPDATE SET
+        original_url = EXCLUDED.original_url,
+        entry_id = COALESCE(EXCLUDED.entry_id, public.listing_urls.entry_id),
+        listing_id = COALESCE(EXCLUDED.listing_id, public.listing_urls.listing_id);
+
+    RETURN v_normalized_url;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.release_listing_url(
+    p_entry_id UUID DEFAULT NULL,
+    p_listing_id UUID DEFAULT NULL,
+    p_keep_url TEXT DEFAULT NULL
+)
+RETURNS void AS $$
+BEGIN
+    DELETE FROM public.listing_urls
+    WHERE (
+        (p_entry_id IS NOT NULL AND entry_id = p_entry_id)
+        OR (p_listing_id IS NOT NULL AND listing_id = p_listing_id)
+    )
+    AND (p_keep_url IS NULL OR normalized_url <> public.normalize_listing_url(p_keep_url));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.place_bid(
     p_entry_id UUID,
@@ -216,6 +298,8 @@ BEGIN
     )
     RETURNING * INTO v_entry;
 
+    PERFORM public.claim_listing_url(p_link_url, v_entry.id);
+
     RETURN v_entry;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
@@ -267,6 +351,18 @@ CREATE TABLE IF NOT EXISTS public.bids (
 ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS entry_id UUID REFERENCES public.leaderboard_entries(id) ON DELETE SET NULL;
 ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS target_position INTEGER CHECK (target_position BETWEEN 1 AND 20);
 ALTER TABLE public.leaderboard_entries ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0;
+
+INSERT INTO public.listing_urls (normalized_url, original_url, listing_id)
+SELECT public.normalize_listing_url(url), url, id
+FROM public.listings
+WHERE url IS NOT NULL AND trim(url) <> ''
+ON CONFLICT (normalized_url) DO NOTHING;
+
+INSERT INTO public.listing_urls (normalized_url, original_url, entry_id)
+SELECT public.normalize_listing_url(link_url), link_url, id
+FROM public.leaderboard_entries
+WHERE link_url IS NOT NULL AND trim(link_url) <> ''
+ON CONFLICT (normalized_url) DO NOTHING;
 
 -- ------------------------------------------------------------------------------
 -- 4. Table: click_events (Redirect Tracking)

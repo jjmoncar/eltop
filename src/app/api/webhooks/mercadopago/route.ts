@@ -151,6 +151,15 @@ export async function processSuccessfulBid(bidId: string, paymentId: string, pay
 
     if (entryError || !entry) throw entryError || new Error('Could not create leaderboard entry');
 
+    const { error: urlClaimError } = await supabaseAdmin.rpc('claim_listing_url', {
+      p_url: targetBid.target_url,
+      p_entry_id: entry.id,
+    });
+    if (urlClaimError) {
+      if (!existingEntry) await supabaseAdmin.from('leaderboard_entries').delete().eq('id', entry.id);
+      throw urlClaimError;
+    }
+
     const targetPosition = Math.min(Math.max(targetBid.target_position || 1, 1), 20);
     const { data: placement, error: placementError } = await supabaseAdmin.rpc('place_bid', {
       p_entry_id: entry.id,

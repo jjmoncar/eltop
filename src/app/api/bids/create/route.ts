@@ -3,6 +3,8 @@ import { supabaseAdmin, mockBids, isSupabaseConfigured } from '@/lib/supabase/ad
 import { calculateMinimumBid } from '@/lib/auction';
 import { sanitizeText, validateListingInput, checkRateLimit } from '@/lib/anti-abuse';
 import { Bid } from '@/types/database';
+import { normalizeListingUrl } from '@/lib/listing-url';
+import { mockLeaderboardEntries, mockListings } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -65,9 +67,22 @@ export async function POST(req: NextRequest) {
     const cleanTagline = sanitizeText(tagline);
     const cleanBuyerName = sanitizeText(buyerName || name);
     const cleanLogoUrl = logoUrl ? sanitizeText(logoUrl) : null;
-    let targetUrl = url.trim();
-    if (!targetUrl.startsWith('http')) {
-      targetUrl = `https://${targetUrl}`;
+    const targetUrl = normalizeListingUrl(url);
+
+    if (isSupabaseConfigured && supabaseAdmin) {
+      const { data: existingUrl } = await supabaseAdmin
+        .from('listing_urls')
+        .select('normalized_url')
+        .eq('normalized_url', targetUrl)
+        .maybeSingle();
+      if (existingUrl) {
+        return NextResponse.json({ error: 'Esta URL ya está registrada en otro anuncio.' }, { status: 409 });
+      }
+    } else if (
+      mockLeaderboardEntries.some((entry) => entry.link_url && normalizeListingUrl(entry.link_url) === targetUrl) ||
+      mockListings.some((listing) => listing.url && normalizeListingUrl(listing.url) === targetUrl)
+    ) {
+      return NextResponse.json({ error: 'Esta URL ya está registrada en otro anuncio.' }, { status: 409 });
     }
 
     let createdBidId = `bid_${Date.now()}`;

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, sanitizeText, validateListingInput } from '@/lib/anti-abuse';
-import { mockCategories, mockLeaderboardEntries, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/admin';
+import { mockCategories, mockLeaderboardEntries, mockListings, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/admin';
 import { LeaderboardEntry } from '@/types/database';
+import { normalizeListingUrl } from '@/lib/listing-url';
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     const cleanName = sanitizeText(name);
     const cleanTagline = sanitizeText(tagline);
     const cleanLogoUrl = logoUrl ? sanitizeText(logoUrl) : null;
-    const cleanUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
+    const cleanUrl = normalizeListingUrl(url);
 
     if (!resolvedCategoryId) {
       return NextResponse.json({ error: 'Categoría no encontrada.' }, { status: 404 });
@@ -46,11 +47,20 @@ export async function POST(req: NextRequest) {
       });
 
       if (error || !data) {
+        if (error?.message.includes('LISTING_URL_ALREADY_EXISTS')) {
+          return NextResponse.json({ error: 'Esta URL ya está registrada en otro anuncio.' }, { status: 409 });
+        }
         console.error('Free entry registration error:', error);
         return NextResponse.json({ error: 'No se pudo registrar la entrada gratuita.' }, { status: 500 });
       }
 
       return NextResponse.json({ success: true, entry: data });
+    }
+
+    const existingUrl = mockLeaderboardEntries.some((entry) => entry.link_url && normalizeListingUrl(entry.link_url) === cleanUrl)
+      || mockListings.some((listing) => listing.url && normalizeListingUrl(listing.url) === cleanUrl);
+    if (existingUrl) {
+      return NextResponse.json({ error: 'Esta URL ya está registrada en otro anuncio.' }, { status: 409 });
     }
 
     const categoryEntries = mockLeaderboardEntries.filter((entry) => entry.category_id === resolvedCategoryId);

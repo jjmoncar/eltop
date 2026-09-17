@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseConfigured, mockLeaderboardEntries, mockListings, supabaseAdmin } from '@/lib/supabase/admin';
 import { validateAdminRequest } from '@/lib/auth';
+import { normalizeListingUrl } from '@/lib/listing-url';
 
 export async function PATCH(req: NextRequest) {
   const auth = await validateAdminRequest(req);
@@ -11,16 +12,41 @@ export async function PATCH(req: NextRequest) {
     if (!id || !name?.trim() || !url?.trim()) {
       return NextResponse.json({ error: 'Nombre y URL son obligatorios.' }, { status: 400 });
     }
-    const cleanUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
+    const cleanUrl = normalizeListingUrl(url);
 
     if (isSupabaseConfigured && supabaseAdmin) {
+      const { data: currentEntry } = await supabaseAdmin
+        .from('leaderboard_entries')
+        .select('link_url')
+        .eq('id', id)
+        .maybeSingle();
+      const { data: currentListing } = currentEntry ? { data: null } : await supabaseAdmin
+        .from('listings')
+        .select('url')
+        .eq('id', id)
+        .maybeSingle();
+      const previousUrl = currentEntry?.link_url || currentListing?.url;
+      const previousNormalizedUrl = previousUrl ? normalizeListingUrl(previousUrl) : null;
+      if (previousNormalizedUrl !== cleanUrl) {
+        const { error: claimError } = await supabaseAdmin.rpc('claim_listing_url', {
+          p_url: cleanUrl,
+          ...(currentEntry ? { p_entry_id: id } : { p_listing_id: id }),
+        });
+        if (claimError) return NextResponse.json({ error: 'Esta URL ya está registrada en otro anuncio.' }, { status: 409 });
+      }
+
       const entryUpdate = await supabaseAdmin
         .from('leaderboard_entries')
         .update({ display_name: name.trim(), tagline: tagline?.trim() || null, link_url: cleanUrl, logo_url: logoUrl?.trim() || null })
         .eq('id', id)
         .select('id')
         .maybeSingle();
-      if (!entryUpdate.error && entryUpdate.data) return NextResponse.json({ success: true });
+      if (!entryUpdate.error && entryUpdate.data) {
+        if (previousNormalizedUrl !== cleanUrl) {
+          await supabaseAdmin.rpc('release_listing_url', { p_entry_id: id, p_keep_url: cleanUrl });
+        }
+        return NextResponse.json({ success: true });
+      }
 
       const listingUpdate = await supabaseAdmin
         .from('listings')
@@ -29,11 +55,20 @@ export async function PATCH(req: NextRequest) {
         .select('id')
         .maybeSingle();
       if (listingUpdate.error || !listingUpdate.data) return NextResponse.json({ error: 'Listado no encontrado.' }, { status: 404 });
+      if (previousNormalizedUrl !== cleanUrl) {
+        await supabaseAdmin.rpc('release_listing_url', { p_listing_id: id, p_keep_url: cleanUrl });
+      }
       return NextResponse.json({ success: true });
     }
 
     const entry = mockLeaderboardEntries.find((item) => item.id === id);
     if (entry) {
+      const duplicate = [...mockLeaderboardEntries, ...mockListings].some((item) => {
+        const itemId = item.id;
+        const itemUrl = 'link_url' in item ? item.link_url : 'url' in item ? item.url : null;
+        return itemId !== id && itemUrl && normalizeListingUrl(itemUrl) === cleanUrl;
+      });
+      if (duplicate) return NextResponse.json({ error: 'Esta URL ya está registrada en otro anuncio.' }, { status: 409 });
       entry.display_name = name.trim();
       entry.tagline = tagline?.trim() || null;
       entry.link_url = cleanUrl;
@@ -42,6 +77,11 @@ export async function PATCH(req: NextRequest) {
     }
     const listing = mockListings.find((item) => item.id === id);
     if (!listing) return NextResponse.json({ error: 'Listado no encontrado.' }, { status: 404 });
+    const duplicate = [...mockLeaderboardEntries, ...mockListings].some((item) => {
+      const itemUrl = 'link_url' in item ? item.link_url : 'url' in item ? item.url : null;
+      return item.id !== id && itemUrl && normalizeListingUrl(itemUrl) === cleanUrl;
+    });
+    if (duplicate) return NextResponse.json({ error: 'Esta URL ya está registrada en otro anuncio.' }, { status: 409 });
     listing.name = name.trim();
     listing.tagline = tagline?.trim() || '';
     listing.url = cleanUrl;
@@ -64,9 +104,13 @@ export async function DELETE(req: NextRequest) {
 
     if (isSupabaseConfigured && supabaseAdmin) {
       const entryDelete = await supabaseAdmin.from('leaderboard_entries').delete().eq('id', id).select('id').maybeSingle();
-      if (!entryDelete.error && entryDelete.data) return NextResponse.json({ success: true });
+      if (!entryDelete.error && entryDelete.data) {
+        await supabaseAdmin.rpc('release_listing_url', { p_entry_id: id });
+        return NextResponse.json({ success: true });
+      }
       const listingDelete = await supabaseAdmin.from('listings').delete().eq('id', id).select('id').maybeSingle();
       if (listingDelete.error || !listingDelete.data) return NextResponse.json({ error: 'Listado no encontrado.' }, { status: 404 });
+      await supabaseAdmin.rpc('release_listing_url', { p_listing_id: id });
       return NextResponse.json({ success: true });
     }
 
