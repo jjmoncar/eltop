@@ -490,6 +490,48 @@ export default function AdminPage() {
     }
   };
 
+  const editListing = async (listing: Listing) => {
+    const name = prompt('Nombre del proyecto:', listing.name);
+    if (name === null) return;
+    const url = prompt('URL del proyecto:', listing.url);
+    if (url === null) return;
+    const tagline = prompt('Descripción corta:', listing.tagline);
+    if (tagline === null) return;
+    const logoUrl = prompt('URL del logo (opcional):', listing.logo_url || '');
+    if (logoUrl === null) return;
+
+    try {
+      const res = await fetch('/api/admin/entries', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ id: listing.id, name, url, tagline, logoUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo editar el listado.');
+      setActionMessage(`Listado "${name}" actualizado.`);
+      fetchMetrics(authToken);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error al editar el listado.');
+    }
+  };
+
+  const deleteListing = async (listing: Listing) => {
+    if (!window.confirm(`¿Eliminar definitivamente "${listing.name}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch('/api/admin/entries', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ id: listing.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar el listado.');
+      setActionMessage(`Listado "${listing.name}" eliminado.`);
+      fetchMetrics(authToken);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error al eliminar el listado.');
+    }
+  };
+
   const confirmPayPalPayment = async (bidId: string) => {
     const txHash = prompt('Ingresa el ID de transacción PayPal o comprobante (ej: 8XX99876YY):');
     if (!txHash) return;
@@ -1047,6 +1089,14 @@ export default function AdminPage() {
                                 </a>
 
                                 <button
+                                  onClick={() => editListing(l)}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  <span>Editar</span>
+                                </button>
+
+                                <button
                                   onClick={() => toggleApproval(l.id, l.is_approved)}
                                   className={`px-3 py-1 rounded-full font-bold transition ${
                                     l.is_approved
@@ -1055,6 +1105,14 @@ export default function AdminPage() {
                                   }`}
                                 >
                                   {l.is_approved ? 'Ocultar' : 'Aprobar'}
+                                </button>
+
+                                <button
+                                  onClick={() => deleteListing(l)}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 text-red-700 hover:bg-red-100"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Eliminar</span>
                                 </button>
                               </td>
                             </tr>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin, mockListings, isSupabaseConfigured } from '@/lib/supabase/admin';
+import { supabaseAdmin, mockListings, mockLeaderboardEntries, isSupabaseConfigured } from '@/lib/supabase/admin';
 import { validateAdminRequest } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
@@ -16,17 +16,31 @@ export async function POST(req: NextRequest) {
     }
 
     if (isSupabaseConfigured && supabaseAdmin) {
+      const entryResult = await supabaseAdmin
+        .from('leaderboard_entries')
+        .update({ is_approved: isApproved })
+        .eq('id', listingId)
+        .select('id')
+        .maybeSingle();
+
+      if (!entryResult.error && entryResult.data) {
+        return NextResponse.json({ success: true, isApproved });
+      }
+
       const { error } = await supabaseAdmin
         .from('listings')
         .update({ is_approved: isApproved, updated_at: new Date().toISOString() })
         .eq('id', listingId);
-
       if (error) throw error;
     } else {
-      const item = mockListings.find((l) => l.id === listingId);
-      if (item) {
-        item.is_approved = isApproved;
-        item.updated_at = new Date().toISOString();
+      const entry = mockLeaderboardEntries.find((item) => item.id === listingId);
+      if (entry) entry.is_approved = isApproved;
+      else {
+        const item = mockListings.find((l) => l.id === listingId);
+        if (item) {
+          item.is_approved = isApproved;
+          item.updated_at = new Date().toISOString();
+        }
       }
     }
 
