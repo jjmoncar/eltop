@@ -5,7 +5,6 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
 import { LiveActivityFeed } from '@/components/LiveActivityFeed';
-import { AdsterraLeftBanner } from '@/components/AdsterraLeftBanner';
 import { Category, Listing, CurrencyCode } from '@/types/database';
 import { formatUSDOnly } from '@/lib/currencies';
 import { useRouter } from 'next/navigation';
@@ -329,11 +328,7 @@ export default function HomePage() {
 
       {/* Main Leaderboard Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-12">
-        <div className="flex items-start gap-8">
-          <AdsterraLeftBanner />
-
-          <div className="min-w-0 flex-1">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Main Leaderboard Tables */}
               <div className="lg:col-span-8 space-y-8">
                 {isLoading ? (
@@ -375,8 +370,6 @@ export default function HomePage() {
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
         </div>
       </main>
 
