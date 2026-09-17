@@ -5,6 +5,7 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
 import { LiveActivityFeed } from '@/components/LiveActivityFeed';
+import { AdsterraLeftBanner } from '@/components/AdsterraLeftBanner';
 import { Category, Listing, CurrencyCode } from '@/types/database';
 import { formatUSDOnly } from '@/lib/currencies';
 import { useRouter } from 'next/navigation';
@@ -328,46 +329,52 @@ export default function HomePage() {
 
       {/* Main Leaderboard Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Leaderboard Tables */}
-          <div className="lg:col-span-8 space-y-8">
-            {isLoading ? (
-              <div className="py-20 text-center text-stone-400 text-sm animate-pulse">
-                Cargando rankings de LATAM...
+        <div className="flex items-start gap-8">
+          <AdsterraLeftBanner />
+
+          <div className="min-w-0 flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Main Leaderboard Tables */}
+              <div className="lg:col-span-8 space-y-8">
+                {isLoading ? (
+                  <div className="py-20 text-center text-stone-400 text-sm animate-pulse">
+                    Cargando rankings de LATAM...
+                  </div>
+                ) : (
+                  filteredCategories.map((category) => {
+                    const catListings = listings.filter(
+                      (l) => l.category_id === category.id && (l.rank_type === activeTimeTab || (!l.rank_type && activeTimeTab === 'all_time'))
+                    );
+                    return (
+                      <LeaderboardTable
+                        key={category.id}
+                        category={category}
+                        listings={catListings}
+                        currency={currency}
+                      />
+                    );
+                  })
+                )}
               </div>
-            ) : (
-              filteredCategories.map((category) => {
-                const catListings = listings.filter(
-                  (l) => l.category_id === category.id && (l.rank_type === activeTimeTab || (!l.rank_type && activeTimeTab === 'all_time'))
-                );
-                return (
-                  <LeaderboardTable
-                    key={category.id}
-                    category={category}
-                    listings={catListings}
-                    currency={currency}
-                  />
-                );
-              })
-            )}
-          </div>
 
-          {/* Sidebar Activity & Rules */}
-          <div className="lg:col-span-4 space-y-6">
-            <LiveActivityFeed currency={currency} />
+              {/* Sidebar Activity & Rules */}
+              <div className="lg:col-span-4 space-y-6">
+                <LiveActivityFeed currency={currency} />
 
-            {/* Subasta 101 Card */}
-            <div className="p-6 rounded-3xl bg-white border border-[#EAE6DF] shadow-sm space-y-3">
-              <h3 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#E05A38]" />
-                Mecánica de Subasta
-              </h3>
-              <p className="text-xs text-stone-600 leading-relaxed">
-                1. <strong>Supera al puesto:</strong> Para subir al puesto #1 o a cualquier otro lugar, paga la puja actual + el incremento ($1 USD).
-              </p>
-              <p className="text-xs text-stone-600 leading-relaxed">
-                2. <strong>Tráfico garantizado:</strong> Recibes un enlace exclusivo <code>/l/[id]</code> que redirige directamente a tu web contando cada clic.
-              </p>
+                {/* Subasta 101 Card */}
+                <div className="p-6 rounded-3xl bg-white border border-[#EAE6DF] shadow-sm space-y-3">
+                  <h3 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#E05A38]" />
+                    Mecánica de Subasta
+                  </h3>
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    1. <strong>Supera al puesto:</strong> Para subir al puesto #1 o a cualquier otro lugar, paga la puja actual + el incremento ($1 USD).
+                  </p>
+                  <p className="text-xs text-stone-600 leading-relaxed">
+                    2. <strong>Tráfico garantizado:</strong> Recibes un enlace exclusivo <code>/l/[id]</code> que redirige directamente a tu web contando cada clic.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
