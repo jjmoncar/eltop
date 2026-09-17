@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
       current_price: null,
       is_paid: false,
       is_approved: true,
+      click_count: 0,
       registered_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };

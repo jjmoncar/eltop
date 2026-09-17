@@ -54,6 +54,7 @@ export interface LeaderboardEntry {
   current_price?: number | null;
   is_paid: boolean;
   is_approved: boolean;
+  click_count: number;
   registered_at: string;
   last_bid_at?: string | null;
   created_at: string;

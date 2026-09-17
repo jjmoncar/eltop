@@ -22,7 +22,7 @@ export async function GET() {
 
       const { data: entries, error: entryErr } = await supabaseAdmin
         .from('leaderboard_entries')
-        .select('id, category_id, display_name, tagline, link_url, logo_url, position, current_price, is_paid, is_approved, registered_at, created_at')
+        .select('id, category_id, display_name, tagline, link_url, logo_url, position, current_price, is_paid, is_approved, click_count, registered_at, created_at')
         .eq('is_approved', true);
 
       if (!entryErr && entries) {
@@ -40,9 +40,9 @@ export async function GET() {
             url: entry.link_url || '#',
             logo_url: entry.logo_url,
             current_bid_cents: Math.round(Number(entry.current_price || 0) * 100),
-            click_count: 0,
             is_approved: entry.is_approved,
             is_paid: entry.is_paid,
+            click_count: entry.click_count || 0,
             registered_at: entry.registered_at,
             created_at: entry.created_at,
             updated_at: entry.created_at,
@@ -83,9 +83,9 @@ export async function GET() {
           url: entry.link_url || '#',
           logo_url: entry.logo_url,
           current_bid_cents: Math.round(Number(entry.current_price || 0) * 100),
-          click_count: 0,
           is_approved: true,
           is_paid: entry.is_paid,
+          click_count: entry.click_count || 0,
           registered_at: entry.registered_at,
           created_at: entry.created_at,
           updated_at: entry.created_at,

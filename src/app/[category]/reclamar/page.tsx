@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { usePathname } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { ClaimForm } from '@/components/ClaimForm';
@@ -12,9 +11,7 @@ import { Category, Listing, CurrencyCode } from '@/types/database';
 function ReclamarContent() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const pathname = usePathname();
   const categorySlug = params.category as string;
-  const locale = pathname.split('/')[1] || 'es';
   const targetPosParam = searchParams.get('targetPos') ? parseInt(searchParams.get('targetPos')!, 10) : undefined;
 
   const [currency, setCurrency] = useState<CurrencyCode>('USD');

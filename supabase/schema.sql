@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.leaderboard_entries (
     logo_url TEXT,
     position INTEGER,
     current_price NUMERIC(10,2),
+    click_count INTEGER NOT NULL DEFAULT 0,
     is_paid BOOLEAN NOT NULL DEFAULT false,
     is_approved BOOLEAN NOT NULL DEFAULT true,
     registered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -265,6 +266,7 @@ CREATE TABLE IF NOT EXISTS public.bids (
 
 ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS entry_id UUID REFERENCES public.leaderboard_entries(id) ON DELETE SET NULL;
 ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS target_position INTEGER CHECK (target_position BETWEEN 1 AND 20);
+ALTER TABLE public.leaderboard_entries ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0;
 
 -- ------------------------------------------------------------------------------
 -- 4. Table: click_events (Redirect Tracking)
@@ -309,6 +311,15 @@ BEGIN
     WHERE id = target_listing_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.increment_entry_click_count(target_entry_id UUID)
+RETURNS void AS $$
+BEGIN
+    UPDATE public.leaderboard_entries
+    SET click_count = click_count + 1
+    WHERE id = target_entry_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ------------------------------------------------------------------------------
 -- Row Level Security (RLS)
