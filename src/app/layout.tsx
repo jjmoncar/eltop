@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'eltop.lat Team' }],
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://eltop.lat'),
+  icons: {
+    icon: '/favicon.svg',
+  },
   alternates: {
     languages: {
       es: '/es',
