@@ -89,7 +89,7 @@ export function ClaimForm({
   };
 
   const [offeredAmountUSD, setOfferedAmountUSD] = useState<number>(20);
-  const [paymentProvider, setPaymentProvider] = useState<'stripe_pix' | 'paypal'>(
+  const [paymentProvider, setPaymentProvider] = useState<'stripe_pix' | 'paypal' | 'dlocalgo'>(
     initialCountryCode === 'BR' || currency === 'BRL' ? 'stripe_pix' : 'paypal'
   );
 
@@ -216,6 +216,20 @@ export function ClaimForm({
         });
         setPaypalSubmitted(true);
         setIsSubmitting(false);
+        return;
+      }
+
+      if (paymentProvider === 'dlocalgo') {
+        const checkoutRes = await fetch('/api/checkout/dlocalgo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bidId }),
+        });
+        const checkoutData = await checkoutRes.json();
+        if (!checkoutRes.ok || !checkoutData.redirectUrl) {
+          throw new Error(checkoutData.error || 'Error al iniciar el checkout de dLocal Go.');
+        }
+        window.location.href = checkoutData.redirectUrl;
         return;
       }
 
@@ -545,7 +559,7 @@ export function ClaimForm({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] text-stone-500 mb-1">
                       URL de Destino *
@@ -772,6 +786,24 @@ export function ClaimForm({
                       <div className="text-[10px] text-stone-500">Instantáneo en R$ (BRL)</div>
                     </div>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentProvider('dlocalgo')}
+                    className={`p-3.5 rounded-2xl border text-left transition flex items-center gap-3 ${
+                      paymentProvider === 'dlocalgo'
+                        ? 'bg-[#FDF2EE] border-[#E05A38] text-stone-900 shadow-xs ring-1 ring-[#E05A38]'
+                        : 'bg-white border-[#EAE6DF] text-stone-600 hover:text-stone-950'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-xl bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0 font-black text-[10px]">
+                      dL
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Tarjeta internacional</div>
+                      <div className="text-[10px] text-stone-500">Crédito y débito con dLocal Go</div>
+                    </div>
+                  </button>
                 </div>
               </div>
 
@@ -785,6 +817,8 @@ export function ClaimForm({
                   ? 'Procesando Puja...'
                   : paymentProvider === 'paypal'
                   ? `Proceder a pagar $${offeredAmountUSD} USD con PayPal / Tarjeta →`
+                  : paymentProvider === 'dlocalgo'
+                  ? `Pagar $${offeredAmountUSD} USD con tarjeta →`
                   : `Pagar $${offeredAmountUSD} USD con Pix (Mercado Pago) →`}
               </button>
 
@@ -793,6 +827,8 @@ export function ClaimForm({
                 <span>
                   {paymentProvider === 'stripe_pix'
                     ? 'Pago seguro con Pix procesado a través de Mercado Pago'
+                    : paymentProvider === 'dlocalgo'
+                    ? 'Pago seguro con tarjeta procesado por dLocal Go'
                     : 'Pago seguro internacional con tarjeta o saldo procesado a través de PayPal'}
                 </span>
               </div>

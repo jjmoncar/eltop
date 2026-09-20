@@ -16,6 +16,19 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Pagos con dLocal Go
+
+Para habilitar el método **Tarjeta internacional (dLocal Go)** configura en el entorno del servidor:
+
+```env
+DLOCALGO_MODE=sandbox
+DLOCALGO_API_KEY=tu_api_key
+DLOCALGO_SECRET_KEY=tu_secret_key
+NEXT_PUBLIC_APP_URL=https://tu-dominio.com
+```
+
+Usa `DLOCALGO_MODE=live` para producción. En el panel de dLocal Go configura como URL de notificaciones `https://tu-dominio.com/api/webhooks/dlocalgo`. La puja solo se marca como pagada después de validar la firma de la notificación y consultar el pago en la API de dLocal Go.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

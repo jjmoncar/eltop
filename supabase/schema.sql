@@ -341,7 +341,7 @@ CREATE TABLE IF NOT EXISTS public.bids (
     tagline TEXT NOT NULL,
     target_url TEXT NOT NULL,
     logo_url TEXT,
-    payment_provider TEXT NOT NULL DEFAULT 'mercadopago', -- 'mercadopago', 'stripe_pix', 'usdt_manual'
+    payment_provider TEXT NOT NULL DEFAULT 'mercadopago', -- 'mercadopago', 'stripe_pix', 'paypal', 'dlocalgo', 'usdt_manual'
     payment_id TEXT,
     payment_status TEXT NOT NULL DEFAULT 'pending',       -- 'pending', 'paid', 'failed', 'refunded'
     raw_payment_data JSONB,
